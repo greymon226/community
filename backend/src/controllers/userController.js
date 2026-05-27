@@ -1,0 +1,99 @@
+'use strict';
+
+const { Op } = require('sequelize');
+const { User, Post, Comment, Favorite } = require('../models');
+const { ok, fail } = require('../utils/response');
+const { cleanPlainText } = require('../utils/sanitize');
+
+// GET /users/:id
+async function getProfile(req, res) {
+  const user = await User.findByPk(req.params.id);
+  if (!user) return fail(res, '用户不存在', 404, 404);
+
+  const [postCount, favoriteCount] = await Promise.all([
+    Post.count({ where: { authorId: user.id, status: 'published' } }),
+    Favorite.count({ where: { userId: user.id } }),
+  ]);
+
+  // 用户被点赞次数：聚合其帖子的 likeCount
+  const posts = await Post.findAll({
+    where: { authorId: user.id, status: 'published' },
+    attributes: ['likeCount'],
+  });
+  const totalLikes = posts.reduce((s, p) => s + p.likeCount, 0);
+
+  return ok(res, {
+    id: user.id,
+    empNo: user.empNo,
+    name: user.name,
+    nickname: user.nickname,
+    department: user.department,
+    avatar: user.avatar,
+    bio: user.bio,
+    techTags: user.techTags,
+    role: user.role,
+    stats: {
+      postCount,
+      likeReceived: totalLikes,
+      favoriteCount,
+    },
+  });
+}
+
+// PUT /users/me
+async function updateMe(req, res) {
+  const u = req.user;
+  const { nickname, bio, techTags, avatar, emailNotify } = req.body || {};
+  if (nickname !== undefined) u.nickname = cleanPlainText(nickname).slice(0, 64);
+  if (bio !== undefined) u.bio = cleanPlainText(bio).slice(0, 500);
+  if (techTags !== undefined) {
+    const tags = String(techTags)
+      .split(',')
+      .map((t) => cleanPlainText(t).slice(0, 32))
+      .filter(Boolean)
+      .slice(0, 20);
+    u.techTags = tags.join(',');
+  }
+  if (avatar !== undefined) u.avatar = String(avatar).slice(0, 255);
+  if (emailNotify !== undefined) u.emailNotify = !!emailNotify;
+  await u.save();
+  return ok(res, u);
+}
+
+// GET /users/me/posts
+async function myPosts(req, res) {
+  const { status = 'published', page = 1, pageSize = 10 } = req.query;
+  const where = { authorId: req.user.id };
+  if (status !== 'all') where.status = status;
+  const offset = (page - 1) * pageSize;
+  const { rows, count } = await Post.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    offset,
+    limit: +pageSize,
+  });
+  return ok(res, { items: rows, total: count, page: +page, pageSize: +pageSize });
+}
+
+// GET /users/me/favorites
+async function myFavorites(req, res) {
+  const favs = await Favorite.findAll({
+    where: { userId: req.user.id },
+    order: [['createdAt', 'DESC']],
+    include: [{ association: 'post', include: [{ association: 'author', attributes: ['id', 'nickname', 'name', 'avatar'] }] }],
+  });
+  return ok(res, favs.map((f) => f.post).filter(Boolean));
+}
+
+// GET /users/me/comments
+async function myComments(req, res) {
+  const list = await Comment.findAll({
+    where: { authorId: req.user.id, status: { [Op.ne]: 'deleted' } },
+    order: [['createdAt', 'DESC']],
+    include: [{ association: 'post', attributes: ['id', 'title'] }],
+    limit: 100,
+  });
+  return ok(res, list);
+}
+
+module.exports = { getProfile, updateMe, myPosts, myFavorites, myComments };

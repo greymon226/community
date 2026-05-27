@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+.DS_Store
+
+backend/data/
+backend/uploads/
+frontend/dist/
+
+# 编辑器/系统
+.idea/
+.vscode/
+Thumbs.db

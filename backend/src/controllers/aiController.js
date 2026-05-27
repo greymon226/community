@@ -1,0 +1,213 @@
+'use strict';
+
+const crypto = require('crypto');
+const { ok, fail } = require('../utils/response');
+const ai = require('../services/aiService');
+const search = require('../services/searchService');
+const settings = require('../services/settingService');
+const cache = require('../services/cacheService');
+const moderation = require('../services/moderationService');
+
+/**
+ * POST /api/ai/ask  body: { question, topN? }
+ * 站内 RAG 问答
+ *  - 受 aiAskEnabled 开关控制
+ *  - 配额：每用户每日 aiAskPerUserDailyLimit 次
+ *  - 缓存：相同问题 1 小时内复用（按 sha1(question) 归一化）
+ *  - 检索：调用 searchService.searchForRAG 获取 Top-N 帖子作为上下文
+ */
+async function ask(req, res) {
+  const enabled = await settings.get('aiAskEnabled');
+  if (!enabled) return fail(res, 'AI 问答功能已关闭', 4003, 403);
+
+  const question = String(req.body?.question || '').trim();
+  if (!question) return fail(res, '请输入问题', 400);
+  if (question.length > 500) return fail(res, '问题过长（500 字以内）', 400);
+
+  // 敏感词兜底（不让用户直接把违规内容塞给模型）
+  const filter = await moderation.applySensitiveFilter(question);
+  if (filter.blocked) return fail(res, '问题包含敏感词，请修改后重试', 4001, 400);
+
+  // 缓存命中
+  const qHash = crypto.createHash('sha1').update(question.toLowerCase()).digest('hex').slice(0, 16);
+  const cacheKey = `ai:ask:${qHash}`;
+  const cached = await cache.get(cacheKey);
+  if (cached) return ok(res, { ...cached, cached: true });
+
+  // 配额
+  const limit = await settings.get('aiAskPerUserDailyLimit');
+  const today = new Date().toISOString().slice(0, 10);
+  const quotaKey = `ai:ask:quota:${req.user.id}:${today}`;
+  const used = (await cache.get(quotaKey)) || 0;
+  if (limit > 0 && used >= limit) {
+    return fail(res, `今日 AI 问答次数已用完（上限 ${limit} 次），请明天再试`, 4004, 429);
+  }
+
+  // 1) 检索 Top-N 站内相关帖子
+  const topN = Math.min(8, Math.max(3, parseInt(req.body?.topN || 5, 10)));
+  const sources = await search.searchForRAG(question, { topN });
+
+  // 2) 调 LLM
+  let result;
+  try {
+    result = await ai.askWithRAG(question, sources);
+  } catch (e) {
+    return fail(res, `AI 调用失败：${e.message}`, 5001, 502);
+  }
+
+  // 3) 组装供前端展示的引用列表（只返回被引用过的帖子，附摘要与链接）
+  const citedSet = new Set(result.citedSourceIds || []);
+  const citations = sources
+    .filter((s) => citedSet.has(s.id))
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      summary: s.summary,
+      author: s.author,
+      category: s.category,
+    }));
+
+  // 候选列表（即便未被引用也展示，便于用户自行点击查阅）
+  const candidates = sources.map((s) => ({
+    id: s.id,
+    title: s.title,
+    summary: s.summary,
+    author: s.author,
+    category: s.category,
+  }));
+
+  const payload = {
+    question,
+    answer: result.answer,
+    hasAnswer: result.hasAnswer,
+    citations,
+    candidates,
+    model: result.model,
+    elapsedMs: result.elapsedMs,
+    usage: result.usage,
+    cached: false,
+    quotaUsed: used + 1,
+    quotaLimit: limit,
+  };
+
+  // 4) 缓存（1h）+ 计数
+  await cache.set(cacheKey, payload, 3600);
+  await cache.set(quotaKey, used + 1, 24 * 3600);
+
+  return ok(res, payload);
+}
+
+module.exports = { ask, askStream, assist };
+
+/**
+ * POST /api/ai/ask/stream  body: { question, topN? }
+ * SSE 流式版本的站内 RAG 问答
+ *  - 帧格式：data: {"type":"meta"|"delta"|"done"|"error","payload":{...}}\n\n
+ */
+async function askStream(req, res) {
+  const enabled = await settings.get('aiAskEnabled');
+  if (!enabled) return fail(res, 'AI 问答功能已关闭', 4003, 403);
+
+  const question = String(req.body?.question || '').trim();
+  if (!question) return fail(res, '请输入问题', 400);
+  if (question.length > 500) return fail(res, '问题过长（500 字以内）', 400);
+
+  const filter = await moderation.applySensitiveFilter(question);
+  if (filter.blocked) return fail(res, '问题包含敏感词，请修改后重试', 4001, 400);
+
+  // 配额（流式同样占用 ask 的额度，避免被绕过）
+  const limit = await settings.get('aiAskPerUserDailyLimit');
+  const today = new Date().toISOString().slice(0, 10);
+  const quotaKey = `ai:ask:quota:${req.user.id}:${today}`;
+  const used = (await cache.get(quotaKey)) || 0;
+  if (limit > 0 && used >= limit) {
+    return fail(res, `今日 AI 问答次数已用完（上限 ${limit} 次），请明天再试`, 4004, 429);
+  }
+
+  // 检索
+  const topN = Math.min(8, Math.max(3, parseInt(req.body?.topN || 5, 10)));
+  const sources = await search.searchForRAG(question, { topN });
+  const candidates = sources.map((s) => ({
+    id: s.id, title: s.title, summary: s.summary, author: s.author, category: s.category,
+  }));
+
+  // 准备 SSE 响应
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // 关闭 Nginx 缓冲
+  res.flushHeaders?.();
+
+  const send = (type, payload) => {
+    res.write(`data: ${JSON.stringify({ type, payload })}\n\n`);
+  };
+
+  // 先发 meta：候选 + 配额，让前端立刻渲染骨架
+  send('meta', { candidates, quotaUsed: used + 1, quotaLimit: limit, question });
+
+  let full = '';
+  try {
+    await ai.streamAnswer(question, sources, (type, data) => {
+      if (type === 'delta') {
+        full += data.text;
+        send('delta', { text: data.text });
+      } else if (type === 'done') {
+        // 把编号 -> 帖子映射后的引用列表附上
+        const citedSet = new Set(data.citedSourceIds || []);
+        const citations = sources
+          .filter((s) => citedSet.has(s.id))
+          .map((s) => ({ id: s.id, title: s.title, summary: s.summary, author: s.author, category: s.category }));
+        send('done', {
+          hasAnswer: data.hasAnswer,
+          citations,
+          usage: data.usage,
+          full: data.full,
+        });
+      }
+    });
+    // 流式调用占用一次额度
+    await cache.set(quotaKey, used + 1, 24 * 3600);
+  } catch (e) {
+    send('error', { message: e.message });
+  } finally {
+    res.end();
+  }
+}
+
+/**
+ * POST /api/ai/assist  body: { kind: 'title'|'summary'|'explainCode', ... }
+ * 写帖子时的辅助：标题改写 / 生成摘要 / 解释代码
+ *  - 共享一个 aiAssistEnabled 开关
+ *  - 配额：每用户每日 aiAssistPerUserDailyLimit
+ */
+async function assist(req, res) {
+  const enabled = await settings.get('aiAssistEnabled');
+  if (!enabled) return fail(res, 'AI 写作助手已关闭', 4003, 403);
+
+  const limit = await settings.get('aiAssistPerUserDailyLimit');
+  const today = new Date().toISOString().slice(0, 10);
+  const quotaKey = `ai:assist:quota:${req.user.id}:${today}`;
+  const used = (await cache.get(quotaKey)) || 0;
+  if (limit > 0 && used >= limit) {
+    return fail(res, `今日 AI 写作助手次数已用完（上限 ${limit} 次），请明天再试`, 4004, 429);
+  }
+
+  const kind = String(req.body?.kind || '').trim();
+  let result;
+  try {
+    if (kind === 'title') {
+      result = await ai.assistTitle({ title: req.body.title || '', content: req.body.content || '' });
+    } else if (kind === 'summary') {
+      result = await ai.summarize({ title: req.body.title || '', content: req.body.content || '' });
+    } else if (kind === 'explainCode') {
+      result = await ai.explainCode({ snippet: req.body.snippet || '', language: req.body.language || '' });
+    } else {
+      return fail(res, `不支持的 kind: ${kind}`, 400);
+    }
+  } catch (e) {
+    return fail(res, `AI 调用失败：${e.message}`, 5001, 502);
+  }
+
+  await cache.set(quotaKey, used + 1, 24 * 3600);
+  return ok(res, { kind, ...result, quotaUsed: used + 1, quotaLimit: limit });
+}
