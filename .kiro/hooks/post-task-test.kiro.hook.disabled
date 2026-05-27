@@ -1,0 +1,12 @@
+{
+  "name": "Spec Task 完成后自动跑全量测试",
+  "version": "1.0.0",
+  "description": "当一个 spec task 状态从 in_progress 切到 completed 时，自动跑后端 unit + property 全量测试。任何回归都会立即被发现，避免任务标记完成但实际没通过测试。",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "cd backend && npm run test:unit && npm run test:property"
+  }
+}

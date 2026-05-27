@@ -84,7 +84,7 @@ export default function RichEditor({ value, onChange, placeholder = '请输入�
           onChange={({ file }) => {
             if (file.status === 'done') {
               const url = file.response?.data?.url;
-              if (url) insertHtml(`<img src="${url}" alt="img" />`);
+              if (url) insertHtml(`<img src="${url}" alt="img" style="max-width:350px;height:auto;" />`);
             } else if (file.status === 'error') {
               message.error('图片上传失败');
             }
@@ -105,7 +105,8 @@ export default function RichEditor({ value, onChange, placeholder = '请输入�
         }}
         onBlur={emit}
         data-placeholder={placeholder}
-        style={{ minHeight: 320, padding: 12, outline: 'none' }}
+        style={{ minHeight: 320, padding: 12, outline: 'none', overflowWrap: 'break-word', wordBreak: 'break-word' }}
+        className="rich-editor-body"
       />
     </div>
   );

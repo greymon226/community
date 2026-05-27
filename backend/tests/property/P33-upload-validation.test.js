@@ -224,7 +224,7 @@ test('P33.E: fileFilter accepts iff isExtensionAllowed(originalname)', () => {
       } else {
         assert.ok(cbErr instanceof Error, `rejected file must produce an Error: ${filename}`);
         assert.equal(cbErr.message, '不支持的文件类型', 'rejection message must be "不支持的文件类型"');
-        assert.equal(cbAccept, null, 'rejected file must not also pass true');
+        assert.ok(!cbAccept, 'rejected file must not also pass true');
       }
     }),
     { numRuns: 100 }

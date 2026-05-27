@@ -23,6 +23,7 @@ export default function AdminPage() {
       { key: 'categories', label: '板块管理', children: <Categories /> },
       { key: 'users', label: '用户与权限', children: <Users /> },
       { key: 'words', label: '敏感词', children: <SensitiveWords /> },
+      { key: 'ai-monitor', label: 'AI 监控', children: <AiMonitor /> },
       { key: 'settings', label: '系统设置', children: <Settings /> },
       { key: 'audits', label: '审计日志', children: <AuditLogs /> },
     ] : []),
@@ -392,5 +393,131 @@ function Settings() {
         ]}
       />
     </>
+  );
+}
+
+function AiMonitor() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.aiStats().then(setData).finally(() => setLoading(false));
+  }, []);
+
+  if (loading || !data) return <Card loading />;
+
+  const { today, last7Days, totals, cost } = data;
+  const featureNames = { audit: '内容审核', explain: '帖子解读', ask: 'RAG 问答', assist: '写作助手', recommend: '智能推荐' };
+
+  return (
+    <div>
+      {/* 顶部指标卡片 */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic title="今日总调用" value={totals.todayTotal} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic title="近 7 天总调用" value={totals.weekTotal} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic title="平均响应" value={totals.avgElapsedMs} suffix="ms" />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="成功率"
+              value={(totals.successRate * 100).toFixed(1)}
+              suffix="%"
+              valueStyle={{ color: totals.successRate >= 0.95 ? '#3f8600' : '#cf1322' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 降级 / 拦截 / 缓存统计 */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic title="降级次数" value={totals.weekFallback} valueStyle={{ color: '#fa8c16' }} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic title="AI 拦截" value={totals.weekBlocked} valueStyle={{ color: '#cf1322' }} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic title="缓存命中" value={totals.weekCached} valueStyle={{ color: '#1890ff' }} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="估算费用（7 天）"
+              value={cost.estimatedYuan}
+              prefix="¥"
+              precision={4}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 按功能分拆的今日统计表 */}
+      <Card size="small" title="今日各功能明细" style={{ marginBottom: 16 }}>
+        <Table
+          rowKey="feature"
+          dataSource={Object.entries(today).map(([k, v]) => ({ feature: k, ...v }))}
+          pagination={false}
+          size="small"
+          columns={[
+            { title: '功能', dataIndex: 'feature', render: (v) => featureNames[v] || v },
+            { title: '总调用', dataIndex: 'total' },
+            { title: '成功', dataIndex: 'success' },
+            { title: '降级', dataIndex: 'fallback' },
+            { title: '拦截', dataIndex: 'blocked' },
+            { title: '缓存', dataIndex: 'cached' },
+            { title: '平均延迟', dataIndex: 'avgElapsedMs', render: (v) => `${v}ms` },
+            { title: '成功率', dataIndex: 'successRate', render: (v) => `${(v * 100).toFixed(1)}%` },
+          ]}
+        />
+      </Card>
+
+      {/* 近 7 天趋势简表 */}
+      <Card size="small" title="近 7 天趋势">
+        <Table
+          rowKey="date"
+          dataSource={last7Days}
+          pagination={false}
+          size="small"
+          columns={[
+            { title: '日期', dataIndex: 'date' },
+            ...Object.keys(featureNames).map((k) => ({
+              title: featureNames[k],
+              dataIndex: k,
+              render: (v) => v || 0,
+            })),
+          ]}
+        />
+      </Card>
+
+      {/* Token 消耗 & 费用明细 */}
+      <Card size="small" title="Token 消耗 & 费用" style={{ marginTop: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}><Statistic title="Prompt Tokens" value={cost.promptTokens} /></Col>
+          <Col span={8}><Statistic title="Completion Tokens" value={cost.completionTokens} /></Col>
+          <Col span={8}><Statistic title="估算费用" value={cost.estimatedYuan} prefix="¥" precision={4} /></Col>
+        </Row>
+        <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+          {cost.note}
+        </p>
+      </Card>
+    </div>
   );
 }

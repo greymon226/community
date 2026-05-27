@@ -57,6 +57,7 @@ export const reportApi = {
 
 export const adminApi = {
   stats: () => http.get('/admin/stats'),
+  aiStats: () => http.get('/admin/ai-stats'),
   users: (params) => http.get('/admin/users', { params }),
   updateUserRole: (id, data) => http.put(`/admin/users/${id}/role`, data),
   words: () => http.get('/admin/sensitive-words'),

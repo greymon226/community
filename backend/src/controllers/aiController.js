@@ -28,6 +28,12 @@ async function ask(req, res) {
   const filter = await moderation.applySensitiveFilter(question);
   if (filter.blocked) return fail(res, '问题包含敏感词，请修改后重试', 4001, 400);
 
+  // Prompt injection 防护（仅对直达 AI 的接口生效，不影响 /api/posts 的正文讨论）
+  const injection = ai.detectPromptInjection(question);
+  if (injection.injected) {
+    return fail(res, injection.reason, 4005, 400);
+  }
+
   // 缓存命中
   const qHash = crypto.createHash('sha1').update(question.toLowerCase()).digest('hex').slice(0, 16);
   const cacheKey = `ai:ask:${qHash}`;
@@ -115,6 +121,12 @@ async function askStream(req, res) {
   const filter = await moderation.applySensitiveFilter(question);
   if (filter.blocked) return fail(res, '问题包含敏感词，请修改后重试', 4001, 400);
 
+  // Prompt injection 防护
+  const injection = ai.detectPromptInjection(question);
+  if (injection.injected) {
+    return fail(res, injection.reason, 4005, 400);
+  }
+
   // 配额（流式同样占用 ask 的额度，避免被绕过）
   const limit = await settings.get('aiAskPerUserDailyLimit');
   const today = new Date().toISOString().slice(0, 10);
@@ -193,6 +205,17 @@ async function assist(req, res) {
   }
 
   const kind = String(req.body?.kind || '').trim();
+
+  // Prompt injection 防护：把所有可能直达模型的入参字段都检查一遍
+  const fieldsToCheck = [req.body?.title, req.body?.content, req.body?.snippet]
+    .filter((v) => typeof v === 'string' && v.length > 0);
+  for (const field of fieldsToCheck) {
+    const injection = ai.detectPromptInjection(field);
+    if (injection.injected) {
+      return fail(res, injection.reason, 4005, 400);
+    }
+  }
+
   let result;
   try {
     if (kind === 'title') {

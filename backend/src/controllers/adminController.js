@@ -18,6 +18,13 @@ async function stats(_req, res) {
   return ok(res, { users, posts, comments, categories, pendingReports });
 }
 
+// GET /admin/ai-stats
+async function aiStats(_req, res) {
+  const aiMetrics = require('../services/aiMetricsService');
+  const data = await aiMetrics.getAdminStats(7);
+  return ok(res, data);
+}
+
 // GET /admin/users
 async function listUsers(req, res) {
   const { page = 1, pageSize = 20, keyword } = req.query;
@@ -149,6 +156,7 @@ async function testAi(req, res) {
 
 module.exports = {
   stats,
+  aiStats,
   listUsers,
   updateUserRole,
   listWords,

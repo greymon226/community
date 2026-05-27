@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "community-platform": {
+      "command": "node",
+      "args": ["backend/src/mcp/index.js"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["search_posts", "get_post", "recommend_posts"]
+    }
+  }
+}

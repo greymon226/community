@@ -1,5 +1,11 @@
 ﻿# 企业级技术交流分享社区
 
+![Node 18+](https://img.shields.io/badge/Node-18%2B-339933?logo=nodedotjs&logoColor=white)
+![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Tests 37 Properties](https://img.shields.io/badge/PBT-37%20Properties-brightgreen)
+![License MIT](https://img.shields.io/badge/License-MIT-blue)
+![AI Native](https://img.shields.io/badge/AI%20Native-Kiro%20Spec%20Driven-blueviolet)
+
 基于需求文档实现的企业级技术交流社区，支持用户认证、内容管理、互动、搜索、运营管理、消息通知、AI 辅助等功能。
 
 ## 技术栈

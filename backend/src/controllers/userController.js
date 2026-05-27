@@ -15,11 +15,20 @@ const { cleanPlainText } = require('../utils/sanitize');
 // strings) and the array of normalised tags is returned. Caller is
 // responsible for `arr.join(',')` if a string form is desired.
 function normalizeTechTags(input) {
-  return String(input)
+  const arr = String(input)
     .split(',')
     .map((t) => cleanPlainText(t).slice(0, 32))
-    .filter(Boolean)
-    .slice(0, 20);
+    .filter(Boolean);
+  // 去重（按首次出现顺序保留）— Requirements 3.3, Property 7
+  const seen = new Set();
+  const deduped = [];
+  for (const tag of arr) {
+    if (!seen.has(tag)) {
+      seen.add(tag);
+      deduped.push(tag);
+    }
+  }
+  return deduped.slice(0, 20);
 }
 
 // GET /users/:id

@@ -582,6 +582,7 @@ erDiagram
 | `4002` | 400 | AI 审核 blocked | Property 15 | 提示"内容审核未通过" |
 | `4003` | 403 | AI 功能开关关闭 | `aiExplainEnabled / aiAskEnabled / aiAssistEnabled = false` | 隐藏 / 灰化 AI 入口 |
 | `4004` | 429 | 当日 AI 配额耗尽 | Property 25 | 提示"今日次数已用完" |
+| `4005` | 400 | 疑似提示词注入 | `aiService.detectPromptInjection` 命中（仅 `/api/ai/*` 直达接口） | 提示"请改写问题后重试"，不重试 |
 | `5001` | 502 | AI 服务调用失败 | Property 30 | 提示"AI 暂不可用，请重试"，业务允许失败 |
 | `500` | 500 | 服务端异常 | 未捕获错误 + AI 测试调用异常 | 上报埋点 |
 

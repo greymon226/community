@@ -69,6 +69,7 @@ router.post('/ai/assist', authRequired, wrap(aiCtrl.assist));
 
 // ==========  管理后台 ==========
 router.get('/admin/stats', authRequired, requireRole('admin'), wrap(admin.stats));
+router.get('/admin/ai-stats', authRequired, requireRole('admin'), wrap(admin.aiStats));
 router.get('/admin/users', authRequired, requireRole('admin'), wrap(admin.listUsers));
 router.put('/admin/users/:id/role', authRequired, requireRole('admin'), wrap(admin.updateUserRole));
 

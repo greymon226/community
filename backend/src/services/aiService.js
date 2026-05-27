@@ -4,11 +4,15 @@
 // - provider=deepseek/openai：调用真实大模型（OpenAI 兼容协议）
 // - provider=local 或未配置 API_KEY：使用本地规则做兜底审核
 // - 真实模型调用失败会自动降级到本地规则，保证业务不中断
+//
+// 监控：所有进入此模块的调用都通过 aiMetricsService.record 上报
+// （feature, outcome, elapsedMs, usage），供管理后台 /api/admin/ai-stats 聚合。
 
 const config = require('../config');
 const { Post, Tag } = require('../models');
 const { Op } = require('sequelize');
 const { cleanPlainText } = require('../utils/sanitize');
+const metrics = require('./aiMetricsService');
 
 // 本地兜底用的风险词
 const RISK_KEYWORDS = [
@@ -23,6 +27,7 @@ const RISK_KEYWORDS = [
 async function auditContent({ title = '', content = '' }) {
   const cleanTitle = cleanPlainText(title);
   const cleanContent = cleanPlainText(content);
+  const t0 = Date.now();
 
   // 1. 长度兜底：内容过短无需调模型
   if ((cleanTitle + cleanContent).trim().length < 5) {
@@ -33,15 +38,22 @@ async function auditContent({ title = '', content = '' }) {
   const provider = config.ai.provider;
   if ((provider === 'deepseek' || provider === 'openai') && config.ai.apiKey) {
     try {
-      return await auditWithLLM(cleanTitle, cleanContent);
+      const result = await auditWithLLM(cleanTitle, cleanContent);
+      const outcome = result.status === 'blocked' ? 'blocked' : 'success';
+      metrics.record({ feature: 'audit', outcome, elapsedMs: Date.now() - t0, usage: result.raw?.usage }).catch(() => {});
+      return result;
     } catch (err) {
       console.warn('[AI] LLM audit failed, fallback to local rules:', err.message);
-      // 失败降级
+      const fallbackResult = auditWithLocalRules(cleanTitle, cleanContent);
+      metrics.record({ feature: 'audit', outcome: 'fallback', elapsedMs: Date.now() - t0 }).catch(() => {});
+      return fallbackResult;
     }
   }
 
   // 3. 本地规则兜底
-  return auditWithLocalRules(cleanTitle, cleanContent);
+  const localResult = auditWithLocalRules(cleanTitle, cleanContent);
+  metrics.record({ feature: 'audit', outcome: 'fallback', elapsedMs: Date.now() - t0 }).catch(() => {});
+  return localResult;
 }
 
 function auditWithLocalRules(title, content) {
@@ -205,7 +217,7 @@ async function explainPost({ title, content }) {
   const { parsed, usage } = await callLLMJSON({ system, user, temperature: 0.4 });
 
   const arr = (v) => (Array.isArray(v) ? v.filter(Boolean).map((s) => String(s).slice(0, 300)) : []);
-  return {
+  const result = {
     summary: String(parsed.summary || '').slice(0, 600),
     keyPoints: arr(parsed.keyPoints).slice(0, 8),
     suggestions: arr(parsed.suggestions).slice(0, 6),
@@ -214,6 +226,8 @@ async function explainPost({ title, content }) {
     usage,
     elapsedMs: Date.now() - t0,
   };
+  metrics.record({ feature: 'explain', outcome: 'success', elapsedMs: result.elapsedMs, usage }).catch(() => {});
+  return result;
 }
 
 /**
@@ -280,13 +294,15 @@ async function askWithRAG(question, sources = []) {
       })
       .filter((x) => x !== null)
   )];
+  const elapsedMs = Date.now() - t0;
+  metrics.record({ feature: 'ask', outcome: 'success', elapsedMs, usage }).catch(() => {});
   return {
     answer: String(parsed.answer || '').slice(0, 1500),
     citedSourceIds: cited,
     hasAnswer: !!parsed.hasAnswer,
     model: config.ai.model,
     usage,
-    elapsedMs: Date.now() - t0,
+    elapsedMs,
   };
 }
 
@@ -481,29 +497,36 @@ async function streamAnswer(question, sources, onChunk) {
  * 智能推荐：基于用户技术标签 + 帖子标签匹配
  */
 async function recommendPosts(user, limit = 10) {
+  const t0 = Date.now();
   const tags = (user?.techTags || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (tags.length === 0) {
-    return Post.findAll({
+    const result = await Post.findAll({
       where: { status: 'published' },
       order: [['likeCount', 'DESC'], ['createdAt', 'DESC']],
       limit,
     });
+    metrics.record({ feature: 'recommend', outcome: 'success', elapsedMs: Date.now() - t0 }).catch(() => {});
+    return result;
   }
   const matchedTags = await Tag.findAll({ where: { name: { [Op.in]: tags } } });
   if (matchedTags.length === 0) {
-    return Post.findAll({
+    const result = await Post.findAll({
       where: { status: 'published' },
       order: [['likeCount', 'DESC']],
       limit,
     });
+    metrics.record({ feature: 'recommend', outcome: 'success', elapsedMs: Date.now() - t0 }).catch(() => {});
+    return result;
   }
   const tagIds = matchedTags.map((t) => t.id);
-  return Post.findAll({
+  const result = await Post.findAll({
     where: { status: 'published' },
     include: [{ association: 'tags', where: { id: { [Op.in]: tagIds } }, required: true }],
     order: [['likeCount', 'DESC'], ['createdAt', 'DESC']],
     limit,
   });
+  metrics.record({ feature: 'recommend', outcome: 'success', elapsedMs: Date.now() - t0 }).catch(() => {});
+  return result;
 }
 
 /**
@@ -558,7 +581,111 @@ function parseCitations(answerText, candidates) {
   return result;
 }
 
-module.exports = { auditContent, recommendPosts, explainPost, askWithRAG, streamAnswer, assistTitle, summarize, explainCode };
+/**
+ * Prompt Injection 检测（纯函数）
+ *
+ * 仅用于 *直达 AI 的接口*（/ai/ask, /ai/ask/stream, /ai/assist）的入参检查。
+ * 不对 /api/posts、/api/comments 等"普通业务文本"做检测——让作者可以
+ * 自由讨论 prompt injection 这一话题本身（教程、研究、安全分析）。
+ *
+ * 设计原则：
+ *   1) 高召回 + 低误伤：只命中明显的"指令劫持"句式与角色重设句式，
+ *      不命中含 "ignore" / "system" 等单词的正常技术讨论。
+ *   2) 中英文双语覆盖：企业内场景中文为主，但模型协议层是英文，
+ *      两边都要拦。
+ *   3) 纯函数：相同输入永远相同输出，不依赖外部状态。可被属性测试
+ *      P37 在 100+ 次随机迭代下守护其行为不变。
+ *
+ * 命中规则集（保守、可解释，避免黑盒分类器）：
+ *
+ *  EN-1  ignore / disregard / forget (the|all|any|previous|above) instruction(s)|prompt(s)|message(s)
+ *  EN-2  you are (now|currently) (a|an) (different|new) ...
+ *  EN-3  override (the|your) system (prompt|message|instruction)
+ *  EN-4  pretend (you are|to be) ...
+ *  EN-5  jailbreak / DAN mode / developer mode / bypass (any|all|the) (filter|safety|guardrail)
+ *  EN-6  reveal (the|your) (system|hidden|original) (prompt|instruction)
+ *
+ *  ZH-1  忽略|无视|不要管 ... 上述|前面|之前|所有|全部 ... (指令|提示|要求|规则)
+ *  ZH-2  你 ... 现在|从现在起|从此 ... (是|扮演|变成) ... 新|另一个|不同
+ *  ZH-3  把|将 ... 系统提示|系统指令 ... (告诉|输出|展示)
+ *  ZH-4  绕过|越狱|破解 ... (限制|审核|过滤|安全)
+ *  ZH-5  请输出|展示|告诉我 ... 系统提示|系统指令|原始指令|隐藏指令
+ *
+ * 返回值：{ injected: boolean, reason: string, hits: string[] }
+ *   - injected：是否疑似 prompt injection
+ *   - reason：命中的人类可读原因（用于错误响应 message，已脱敏）
+ *   - hits：命中的规则编号列表（用于审计 / 调试，不下发到客户端）
+ */
+function detectPromptInjection(text) {
+  const empty = { injected: false, reason: '', hits: [] };
+  if (typeof text !== 'string') return empty;
+  const s = text.trim();
+  if (!s) return empty;
+
+  // 长度兜底：< 5 字符的文本不可能构成有意义的注入指令
+  if (s.length < 5) return empty;
+
+  const hits = [];
+
+  // ---- EN rules ----
+  if (/\b(?:ignore|disregard|forget)\s+(?:the\s+|all\s+|any\s+)?(?:previous|above|prior|earlier|preceding)\s+(?:instructions?|prompts?|messages?|rules?)\b/i.test(s)) {
+    hits.push('EN-1');
+  }
+  if (/\byou\s+are\s+(?:now|currently|from\s+now\s+on)\s+(?:a|an)\s+(?:different|new|another)\b/i.test(s)) {
+    hits.push('EN-2');
+  }
+  if (/\boverride\s+(?:the\s+|your\s+)?system\s+(?:prompt|message|instructions?)\b/i.test(s)) {
+    hits.push('EN-3');
+  }
+  if (/\bpretend\s+(?:you\s+are|to\s+be)\b/i.test(s)) {
+    hits.push('EN-4');
+  }
+  if (/\b(?:dan\s+mode|developer\s+mode)\b/i.test(s) ||
+      /\b(?:enter|activate|enable|start|begin|use)\s+(?:jailbreak|dan|developer)\s+(?:mode|prompt)?\b/i.test(s) ||
+      /\bjailbreak\s+(?:mode|prompt|the|this|now)\b/i.test(s) ||
+      /\bbypass\s+(?:any|all|the)?\s*(?:filters?|safety|guardrails?|restrictions?|moderation)\b/i.test(s)) {
+    hits.push('EN-5');
+  }
+  if (/\b(?:reveal|show|print|leak|output|expose)\s+(?:the\s+|your\s+)?(?:system|hidden|original|secret|internal)\s+(?:prompt|instructions?|message)\b/i.test(s)) {
+    hits.push('EN-6');
+  }
+
+  // ---- ZH rules ----
+  // ZH-1：忽略 / 无视 / 不要管 + (上述|前面|...) + (指令|提示|要求|规则)
+  if (/(?:忽略|无视|不要管|不用管)[\s\S]{0,12}(?:上述|前面|之前|以上|刚才|所有|全部)[\s\S]{0,12}(?:指令|提示|要求|规则|约束|限制)/.test(s)) {
+    hits.push('ZH-1');
+  }
+  // ZH-2：(从现在起|你)... + (扮演|是|变成) + (新|另一个|不同)，顺序灵活
+  // 兼容："从现在起你扮演另一个角色" / "你现在是新的助手" / "你从此扮演..."
+  if (
+    /(?:从现在起?|从此|今后|现在起)[\s\S]{0,8}(?:你|您)?[\s\S]{0,8}(?:是|扮演|变成|充当|当作)[\s\S]{0,8}(?:新|另一个|另外|不同|另)/.test(s) ||
+    /(?:你|您)[\s\S]{0,8}(?:现在起?|从现在|从此|今后)[\s\S]{0,8}(?:是|扮演|变成|充当|当作)[\s\S]{0,8}(?:新|另一个|另外|不同|另)/.test(s)
+  ) {
+    hits.push('ZH-2');
+  }
+  // ZH-3：把/将 ... 系统提示|系统指令 ... 告诉|输出|展示
+  if (/(?:把|将|请把|请将)[\s\S]{0,20}(?:系统提示|系统指令|原始提示|原始指令|隐藏提示|隐藏指令)[\s\S]{0,20}(?:告诉|输出|展示|显示|打印)/.test(s)) {
+    hits.push('ZH-3');
+  }
+  // ZH-4：绕过 / 越狱 / 破解 + (限制|审核|过滤|安全)
+  if (/(?:绕过|越狱|破解|突破|跳过)[\s\S]{0,10}(?:限制|审核|过滤|安全|防护|约束)/.test(s)) {
+    hits.push('ZH-4');
+  }
+  // ZH-5：请告诉我 / 输出 / 展示 ... 系统提示 / 原始指令
+  if (/(?:请)?(?:告诉|输出|展示|显示|打印|说出)[\s\S]{0,8}(?:我|你的)?[\s\S]{0,8}(?:系统提示|系统指令|原始提示|原始指令|隐藏提示|隐藏指令|完整提示)/.test(s)) {
+    hits.push('ZH-5');
+  }
+
+  if (hits.length === 0) return empty;
+
+  return {
+    injected: true,
+    reason: '检测到疑似提示词注入（prompt injection），请改写问题后重试',
+    hits,
+  };
+}
+
+module.exports = { auditContent, recommendPosts, explainPost, askWithRAG, streamAnswer, assistTitle, summarize, explainCode, detectPromptInjection };
 // Internal helpers exposed only for unit tests (tests/unit/*.test.js).
 // Do NOT use these in production code paths.
-module.exports.__test = { safeParseJSON, parseCitations };
+module.exports.__test = { safeParseJSON, parseCitations, detectPromptInjection };

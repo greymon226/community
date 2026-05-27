@@ -351,7 +351,7 @@ async function explain(req, res) {
 function normalizeTags(tagNames) {
   const arr = Array.isArray(tagNames) ? tagNames : [];
   const cleaned = arr
-    .map((t) => cleanPlainText(String(t)).slice(0, 32))
+    .map((t) => cleanPlainText(String(t)).slice(0, 32).trim())
     .filter(Boolean);
   const seen = new Set();
   const out = [];

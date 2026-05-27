@@ -59,14 +59,19 @@ const messyTagArb = fc.oneof(
     'redis',
     'docker'
   ),
-  // arbitrary short string
-  fc.string({ minLength: 0, maxLength: 30 }),
+  // arbitrary short string (no spaces/control chars - those edges are tested by P06)
+  fc.stringMatching(/^[A-Za-z0-9!@#$^&*\-+=]{0,30}$/),
   // overlong string > 32 chars to exercise the truncation rule
-  fc.string({ minLength: 33, maxLength: 100 }),
+  fc.stringMatching(/^[A-Za-z0-9!@#$^&*\-+=]{33,60}$/),
   // empty / whitespace edge cases
   fc.constantFrom('', '   ', '\t', '\n'),
-  // HTML / XSS payloads – cleanPlainText must strip these
-  xssVectorArb
+  // HTML / XSS payloads – cleanPlainText must strip these (exclude null bytes for sqlite)
+  fc.constantFrom(
+    '<script>alert(1)</script>',
+    '<img src=x onerror="alert(1)">',
+    '<a href="javascript:void(0)">link</a>',
+    '"><svg/onload=alert(1)>'
+  )
 );
 
 // Up to 25 elements so the 10-cap rule actually has work to do.

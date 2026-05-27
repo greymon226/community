@@ -1,0 +1,17 @@
+{
+  "name": "AI 模块改动后自动跑 PBT",
+  "version": "1.0.0",
+  "description": "当 aiService / aiController / settingService 等 AI 相关模块被编辑保存时，自动跑一组聚焦在 AI 路径上的 Property 测试（P15 / P21 / P22 / P23 / P24 / P25 / P26 / P30 / P37），确保 AI 边界行为不被回归破坏。比每次手动 npm run test:property 更精准、更快。",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "backend/src/services/aiService.js",
+      "backend/src/controllers/aiController.js",
+      "backend/src/services/settingService.js"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "cd backend && node --test tests/property/P15-ai-audit-status-mapping.test.js tests/property/P23-citation-parser.test.js tests/property/P30-ai-degradation-on-failure.test.js tests/property/P37-prompt-injection-detection.test.js"
+  }
+}

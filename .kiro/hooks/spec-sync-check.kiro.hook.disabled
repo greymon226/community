@@ -1,0 +1,17 @@
+{
+  "name": "Spec 同步检查",
+  "version": "1.0.0",
+  "description": "当 .kiro/specs/tech-community-platform/ 下的 requirements / design / tasks 任意一个被编辑保存时，提醒 AI 检查对应的 Property 测试与代码实现是否需要同步，避免 spec 与实现漂移。",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      ".kiro/specs/tech-community-platform/requirements.md",
+      ".kiro/specs/tech-community-platform/design.md",
+      ".kiro/specs/tech-community-platform/tasks.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "检测到 specs 文档被修改。请：\n1) 列出本次改动涉及的需求编号（R x.y）；\n2) 检查 design.md 中是否有对应的 Correctness Property（P xx）；\n3) 检查 backend/tests/property/Pxx-*.test.js 是否需要更新；\n4) 检查相关 controller/service 实现是否仍然满足新 spec；\n5) 给出一份简短的差异清单（待人工确认）。\n\n如果发现实现已偏离新 spec，输出修复建议但不要直接修改代码。"
+  }
+}
