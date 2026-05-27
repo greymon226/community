@@ -8,6 +8,8 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "seed": "node seed.js",
+    "test:unit": "node --test \"tests/unit/**/*.test.js\"",
+    "test:property": "node --test \"tests/property/**/*.test.js\"",
     "test:e2e": "node tests/run-all.js"
   },
   "dependencies": {
@@ -30,6 +32,9 @@
     "sqlite3": "5.1.7"
   },
   "devDependencies": {
-    "nodemon": "3.1.4"
+    "fast-check": "^4.8.0",
+    "ioredis-mock": "^8.13.1",
+    "nodemon": "3.1.4",
+    "sqlite3": "^6.0.1"
   }
 }

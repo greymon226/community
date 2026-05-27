@@ -5,6 +5,23 @@ const { User, Post, Comment, Favorite } = require('../models');
 const { ok, fail } = require('../utils/response');
 const { cleanPlainText } = require('../utils/sanitize');
 
+// Pure helper extracted from `updateMe` so it can be exercised by
+// `tests/property/P07-techtags-normalization.test.js` without booting
+// Express / DB. Runtime behaviour is kept identical to the inline code in
+// `updateMe` (see Property 7 in design.md and Requirements 3.3 / 3.5).
+//
+// Input is normalised to a comma-separated string first (matching the
+// production path: `String(techTags).split(',')` accepts both arrays and
+// strings) and the array of normalised tags is returned. Caller is
+// responsible for `arr.join(',')` if a string form is desired.
+function normalizeTechTags(input) {
+  return String(input)
+    .split(',')
+    .map((t) => cleanPlainText(t).slice(0, 32))
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
 // GET /users/:id
 async function getProfile(req, res) {
   const user = await User.findByPk(req.params.id);
@@ -47,11 +64,7 @@ async function updateMe(req, res) {
   if (nickname !== undefined) u.nickname = cleanPlainText(nickname).slice(0, 64);
   if (bio !== undefined) u.bio = cleanPlainText(bio).slice(0, 500);
   if (techTags !== undefined) {
-    const tags = String(techTags)
-      .split(',')
-      .map((t) => cleanPlainText(t).slice(0, 32))
-      .filter(Boolean)
-      .slice(0, 20);
+    const tags = normalizeTechTags(techTags);
     u.techTags = tags.join(',');
   }
   if (avatar !== undefined) u.avatar = String(avatar).slice(0, 255);
@@ -97,3 +110,9 @@ async function myComments(req, res) {
 }
 
 module.exports = { getProfile, updateMe, myPosts, myFavorites, myComments };
+
+// Test-only export: pure helper used by tests/property/P07-* to assert the
+// techTags normalization invariant without requiring an HTTP / DB stack.
+// Not part of the public controller API; do NOT import this from production
+// code.
+module.exports.__test = { normalizeTechTags };

@@ -1,15 +1,10 @@
 node_modules/
 dist/
-build/
 .env
+.env.local
+.env.prod
+backend/uploads/*
+!backend/uploads/.gitkeep
+backups/
 *.log
 .DS_Store
-
-backend/data/
-backend/uploads/
-frontend/dist/
-
-# 编辑器/系统
-.idea/
-.vscode/
-Thumbs.db

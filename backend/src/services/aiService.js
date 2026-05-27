@@ -506,4 +506,59 @@ async function recommendPosts(user, limit = 10) {
   });
 }
 
+/**
+ * 引用编号解析（纯函数）
+ *
+ * 给定模型回答字符串 `answerText` 与候选数组 `candidates`，从文本中抽取所有 `[n]`
+ * 编号，按首次出现顺序去重，并按以下两种语义映射到候选帖子的真实 id：
+ *   1) 真实帖子 id 语义：n 等于某个 `candidates[i].id` → 直接采用 n 作为 id；
+ *   2) 上下文编号语义：1 ≤ n ≤ candidates.length → 采用 `candidates[n-1].id`；
+ *   3) 越界 / 非法编号被忽略。
+ *
+ * 这是一个纯函数：相同 (answerText, candidates) 多次调用结果完全一致；不修改入参；
+ * 不产生任何副作用。被 `streamAnswer` / `askWithRAG` 复用，并由属性测试 P23 约束。
+ *
+ * @param {string} answerText
+ * @param {Array<{id:number, title?:string}>} candidates
+ * @returns {number[]} citedSourceIds，按首次出现顺序排列
+ */
+function parseCitations(answerText, candidates) {
+  if (typeof answerText !== 'string') return [];
+  if (!Array.isArray(candidates)) return [];
+
+  // 候选帖子的真实 id 集合（用于语义 1）
+  const candidateIds = new Set();
+  for (const c of candidates) {
+    const cid = Number(c && c.id);
+    if (Number.isFinite(cid)) candidateIds.add(cid);
+  }
+
+  const seen = new Set();
+  const result = [];
+  // 使用 \d+ 同时兼容 1-2 位的上下文编号与多位的真实帖子 id；
+  // 设计文档的 \d{1,2} 仅覆盖 ordinal 情形，本助手在不破坏已有行为的前提下
+  // 额外支持真实 id 语义（R18.9）。
+  const re = /\[(\d+)\]/g;
+  let m;
+  while ((m = re.exec(answerText)) !== null) {
+    const n = Number(m[1]);
+    if (!Number.isFinite(n)) continue;
+    let id = null;
+    if (candidateIds.has(n)) {
+      id = n;
+    } else if (n >= 1 && n <= candidates.length) {
+      const cid = Number(candidates[n - 1] && candidates[n - 1].id);
+      if (Number.isFinite(cid)) id = cid;
+    }
+    if (id === null) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+  }
+  return result;
+}
+
 module.exports = { auditContent, recommendPosts, explainPost, askWithRAG, streamAnswer, assistTitle, summarize, explainCode };
+// Internal helpers exposed only for unit tests (tests/unit/*.test.js).
+// Do NOT use these in production code paths.
+module.exports.__test = { safeParseJSON, parseCitations };

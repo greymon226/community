@@ -58,6 +58,9 @@ async function searchPosts({ keyword, categoryId, authorId, tag, sort = 'latest'
 }
 
 module.exports = { searchPosts, searchForRAG };
+// Internal helpers exposed only for unit tests (tests/unit/*.test.js).
+// Do NOT use these in production code paths.
+module.exports.__test = { tokenize, extractSnippet };
 
 /**
  * 为 RAG 准备 Top-N 相关帖子，返回结构化、可直接喂给 LLM 的上下文片段

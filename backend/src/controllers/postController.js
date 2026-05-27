@@ -343,12 +343,30 @@ async function explain(req, res) {
   return ok(res, { ...result, cached: false, quotaUsed: used + 1, quotaLimit: limit });
 }
 
+// 辅助：标签输入归一化（纯函数）
+//   - 接受任意输入：非数组 → 视为空
+//   - 元素经 cleanPlainText、截断 32 字、过滤空串
+//   - 按首次出现顺序去重
+//   - 截断为最多 10 项
+function normalizeTags(tagNames) {
+  const arr = Array.isArray(tagNames) ? tagNames : [];
+  const cleaned = arr
+    .map((t) => cleanPlainText(String(t)).slice(0, 32))
+    .filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  for (const n of cleaned) {
+    if (!seen.has(n)) {
+      seen.add(n);
+      out.push(n);
+    }
+  }
+  return out.slice(0, 10);
+}
+
 // 辅助：把标签数组绑定到帖子
 async function attachTags(post, tagNames) {
-  const cleanedNames = (Array.isArray(tagNames) ? tagNames : [])
-    .map((t) => cleanPlainText(String(t)).slice(0, 32))
-    .filter(Boolean)
-    .slice(0, 10);
+  const cleanedNames = normalizeTags(tagNames);
   if (cleanedNames.length === 0) {
     await PostTag.destroy({ where: { postId: post.id } });
     return;
@@ -369,3 +387,6 @@ module.exports = {
   pin, feature, block,
   recommend, explain,
 };
+
+// Internal helpers exposed for property tests only. NOT part of the public API.
+module.exports.__test = { normalizeTags, attachTags };
