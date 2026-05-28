@@ -105,6 +105,65 @@ npm run dev         # 默认 http://localhost:5173
 
   配置后重启后端，发帖 / 评论会走 AI 审核，帖子详情可用 AI 解读，首页"AI 问答"使用站内 RAG。在 `管理后台 → 系统设置` 可一键测试连通性，调用失败会自动降级为本地规则，业务不中断。
 
+## MCP Server（双向 AI 原生）
+
+本项目额外提供 MCP Server，让外部 AI 助手（Kiro、Claude Desktop、任意 MCP Client）能反向调用社区能力，实现"项目用 AI"+"AI 用项目"双向闭环。
+
+**4 个工具**：`search_posts`（全文搜索）、`get_post`（取帖子）、`ask_community`（站内 RAG 问答）、`recommend_posts`（标签推荐）。
+
+### 部署形态
+
+生产环境 (`docker-compose.prod.yml`) 中 MCP 以独立容器 `mcp` 运行 HTTP 模式，由 frontend nginx 反代到 `/mcp` 路径，对外只暴露 80/443，3001 端口不绑定主机：
+
+```
+公网 ──> nginx :80 ──> /api/* ──> backend:3000
+                  └─> /mcp    ──> mcp:3001 (独立容器)
+```
+
+### 在线 MCP 端点
+
+线上演示环境已开放：
+
+```bash
+# 列出工具
+curl http://124.222.8.86/mcp/tools
+
+# 调用 search_posts
+curl -X POST http://124.222.8.86/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
+       "params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
+```
+
+### 客户端接入（Kiro / Claude Desktop）
+
+```json
+{
+  "mcpServers": {
+    "community-platform": {
+      "url": "http://124.222.8.86/mcp",
+      "autoApprove": ["search_posts", "get_post", "recommend_posts"]
+    }
+  }
+}
+```
+
+零安装：配置完即可在 IDE 对话框直接提问"搜索社区里关于 React 的帖子"，AI 会自动调用 MCP 工具。
+
+### 本地启动 MCP（开发）
+
+```bash
+cd backend
+
+# stdio 模式（本地 IDE）
+node src/mcp/index.js
+
+# HTTP 模式（容器/远端）
+node src/mcp/index.js --http   # 默认监听 0.0.0.0:3001
+```
+
+详细文档见 `backend/src/mcp/README.md`。
+
 ## 数据库结构同步
 
 默认启动只跑 `sequelize.sync()`，不会更改已存在的表结构。模型变更后想增量同步一次，启动时设置 `DB_SYNC_ALTER=1`：

@@ -164,6 +164,8 @@ pandoc 01-设计文档.md -o 01-设计文档.pdf \
 - [ ] AI 功能可用（DeepSeek API Key 有效）
 - [ ] Redis 降级可演示（`docker stop redis` 后系统正常）
 - [ ] Prompt Injection 演示可复现（输入注入串 → 返回 4005）
+- [ ] **MCP HTTP 端点可访问**：`curl http://124.222.8.86/mcp/tools` 返回 4 个工具
+- [ ] **MCP 真实调用可复现**：`curl -X POST http://124.222.8.86/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_posts","arguments":{"keyword":"React"}}}'` 返回帖子列表
 
 ### 4.5 加分项检查
 

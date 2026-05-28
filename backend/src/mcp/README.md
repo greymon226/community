@@ -22,34 +22,81 @@
 
 ## 启动方式
 
-### 1. IDE 自动管理（推荐）
+本 MCP Server 支持两种传输模式：
 
-在 Kiro / VS Code + MCP 插件中，`.kiro/settings/mcp.json` 已配置好：
+### 模式 A：stdio（本地 IDE 自动管理）
+
+适合开发期、本机调试。IDE 启动时 spawn 一个 Node 进程，通过 stdin/stdout 通信。
+
+```bash
+cd backend
+node src/mcp/index.js   # 默认 stdio 模式
+```
+
+启动后 stderr 输出 `[MCP] Community Platform MCP server ready`。
+
+`.kiro/settings/mcp.json` 本地配置示例：
 
 ```json
 {
   "mcpServers": {
-    "community-platform": {
+    "community-platform-local": {
       "command": "node",
       "args": ["backend/src/mcp/index.js"],
-      "disabled": false,
       "autoApprove": ["search_posts", "get_post", "recommend_posts"]
     }
   }
 }
 ```
 
-IDE 会自动启动 MCP server 进程，无需手动操作。
+### 模式 B：HTTP（生产 / 远程接入）
 
-### 2. 手动启动（调试用）
+适合线上部署、给评委或外部 AI 客户端使用。监听 HTTP JSON-RPC 端点。
 
 ```bash
-cd backend
-node src/mcp/index.js
+node src/mcp/index.js --http
+# 默认监听 0.0.0.0:3001，可通过环境变量调整：
+#   MCP_HOST=0.0.0.0
+#   MCP_PORT=3001
 ```
 
-进程启动后在 stderr 输出 `[MCP] Community Platform MCP server ready`，
-然后等待 stdin 上的 JSON-RPC 消息。
+提供两个端点：
+
+| 端点 | 方法 | 用途 |
+| --- | --- | --- |
+| `/tools` | GET | 列出所有工具（供 curl/调试用） |
+| `/` | POST | JSON-RPC 2.0 标准入口 |
+
+### 生产部署（docker-compose.prod.yml）
+
+线上以独立 `mcp` 容器运行 HTTP 模式，由 frontend nginx 反代 `/mcp` 路径，对外不暴露 3001。
+
+```
+公网 ──> nginx :80 ──> /api/* ──> backend:3000
+                  └─> /mcp    ──> mcp:3001 (独立容器，仅内部网络)
+```
+
+线上接入配置（评委侧）：
+
+```json
+{
+  "mcpServers": {
+    "community-platform": {
+      "url": "http://124.222.8.86/mcp",
+      "autoApprove": ["search_posts", "get_post", "recommend_posts"]
+    }
+  }
+}
+```
+
+curl 实测：
+
+```bash
+curl http://124.222.8.86/mcp/tools
+curl -X POST http://124.222.8.86/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
+```
 
 ## 前置条件
 
@@ -60,7 +107,8 @@ node src/mcp/index.js
 ## 安全
 
 - `ask_community` 工具会消耗用户的 AI 配额（与 Web 端共享）
-- MCP server 在 **stdio 模式** 运行，仅本地 IDE 可访问，不暴露网络端口
+- stdio 模式仅本地 IDE 可访问，不暴露网络端口
+- HTTP 模式生产部署时通过 nginx 反代 `/mcp` 路径，3001 端口不绑定主机
 - `autoApprove` 里没有 `ask_community`（它会调 LLM），需要人工确认
 
 ## 演示脚本
