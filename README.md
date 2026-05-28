@@ -1,141 +1,135 @@
 ﻿# 企业级技术交流分享社区
 
-![Node 18+](https://img.shields.io/badge/Node-18%2B-339933?logo=nodedotjs&logoColor=white)
+[![tests](https://github.com/greymon226/community/actions/workflows/test.yml/badge.svg)](https://github.com/greymon226/community/actions/workflows/test.yml)
+![Node 20+](https://img.shields.io/badge/Node-20%2B-339933?logo=nodedotjs&logoColor=white)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
-![Tests 37 Properties](https://img.shields.io/badge/PBT-37%20Properties-brightgreen)
-![License MIT](https://img.shields.io/badge/License-MIT-blue)
+![Properties 37](https://img.shields.io/badge/PBT-37%20Properties%20%2F%20147%20assertions-brightgreen)
 ![AI Native](https://img.shields.io/badge/AI%20Native-Kiro%20Spec%20Driven-blueviolet)
+![License MIT](https://img.shields.io/badge/License-MIT-blue)
 
-基于需求文档实现的企业级技术交流社区，支持用户认证、内容管理、互动、搜索、运营管理、消息通知、AI 辅助等功能。
+企业内部技术交流社区，深度集成 5 大 AI 能力（内容审核 / RAG 问答 / 代码解读 / 写作助手 / 智能推荐），同时通过 MCP Server 让外部 AI 助手反向调用社区，实现"双向 AI 原生"。
+
+| 资源 | 链接 |
+| --- | --- |
+| 在线演示 | http://124.222.8.86 |
+| Git 仓库 | https://github.com/greymon226/community |
+| MCP HTTP 端点 | http://124.222.8.86/mcp |
+
+---
+
+## AI 原生亮点
+
+| 维度 | 内容 |
+| --- | --- |
+| **Spec 三段式** | `requirements.md` (84 EARS) → `design.md` (37 Properties) → `tasks.md` |
+| **Property 测试** | 37 条 Correctness Properties / 29 个 PBT 文件 / 147 个断言 / 0 失败 |
+| **Kiro Hooks** | 4 个运行时 AI 守护：spec-sync / pbt-on-ai-change / secret-leak-guard / post-task-test |
+| **MCP Server** | 4 个工具（search_posts / get_post / ask_community / recommend_posts），HTTP 端点公网可调 |
+| **协作实录** | 8 个真实节点的 AI + 人类协作记录（在 `.kiro/specs/` 下） |
+| **CI/CD** | GitHub Actions 自动跑 unit + property 测试 |
+
+---
+
+## 配套文档
+
+| 文档 | 说明 |
+| --- | --- |
+| [`submission/01-设计文档.md`](submission/01-设计文档.md) | 10 章完整技术设计（项目概述 / 架构 / 详细设计 / AI 方案 / 测试方案 / 经验总结） |
+| [`submission/02-演示材料.md`](submission/02-演示材料.md) | 7 分钟演示脚本 + Q&A + 评委可复现命令清单 |
+| [`submission/03-AI协作关键决策.md`](submission/03-AI协作关键决策.md) | 23 条 AI 协作决策的人证物证 |
+| [`backend/src/mcp/README.md`](backend/src/mcp/README.md) | MCP Server 启动方式（stdio / HTTP）+ 工具协议 |
+| [`.kiro/hooks/README.md`](.kiro/hooks/README.md) | 4 个 Hook 的设计哲学 + 启用方式 |
+
+---
 
 ## 技术栈
 
-- **后端**：Node.js + Express + Sequelize（默认 MySQL，可切换 SQLite）+ JWT + Redis（可选缓存）
-- **前端**：React 18 + Vite + Ant Design + Zustand + React Router
-- **认证**：CAS 单点登录（提供 Mock 实现，便于本地开发；生产环境对接真实 CAS）
-- **搜索**：内置全文搜索（基于数据库 LIKE + 倒排），可平滑替换为 Elasticsearch
-- **AI**：DeepSeek（OpenAI 兼容协议），用于内容审核 / 帖子解读 / 站内 RAG 问答；未配置 Key 时自动降级到本地规则
+| 层 | 技术 |
+| --- | --- |
+| 后端 | Node.js + Express + Sequelize（MySQL，可切 SQLite）+ JWT |
+| 前端 | React 18 + Vite + Ant Design + Zustand + React Router |
+| 缓存 | Redis（未配置时自动降级为内存 Map）|
+| AI | DeepSeek（OpenAI 兼容协议）；调用失败自动降级到本地规则 |
+| 认证 | CAS 单点登录（Mock 模式可本地账号密码登录）|
+| 测试 | Node `--test` runner + fast-check（PBT）|
+| 部署 | Docker Compose（生产）+ nginx 反代（统一 80 端口分流）|
 
-## 目录结构
+---
 
-```
-community/
-├── backend/                # 后端服务
-│   ├── src/
-│   │   ├── config/         # 配置
-│   │   ├── models/         # 数据模型
-│   │   ├── controllers/    # 控制器
-│   │   ├── services/       # 业务服务（含 AI、CAS 抽象）
-│   │   ├── middlewares/    # 鉴权、日志、错误处理
-│   │   ├── routes/         # 路由
-│   │   ├── utils/          # 工具
-│   │   └── app.js
-│   ├── tests/              # 端到端测试
-│   ├── seed.js             # 初始化数据
-│   ├── package.json
-│   └── .env.example
-├── frontend/               # 前端 SPA
-│   ├── src/
-│   │   ├── api/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── store/
-│   │   ├── router/
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-├── docker-compose.yml      # MySQL + Redis 一键启动
-└── README.md
-```
+## 快速启动
 
-## 快速开始
-
-> 推荐：先用 Docker 启动 MySQL + Redis，再分别启动后端与前端。
+### 方式 1：完整 Docker 部署（推荐，与线上一致）
 
 ```bash
-# 1. 启动数据库与缓存（在仓库根目录）
+git clone https://github.com/greymon226/community
+cd community
+
+# 配置生产环境变量
+cp deploy/.env.prod.example .env.prod
+# 编辑 .env.prod：DB_PASS / JWT_SECRET / AI_API_KEY 等
+
+# 一键启动 mysql + redis + backend + mcp + frontend
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+# 灌种子数据
+docker compose -f docker-compose.prod.yml exec backend node seed.js
+
+# 访问
+# 前端:     http://localhost
+# API:      http://localhost/api
+# MCP HTTP: http://localhost/mcp/tools
+```
+
+### 方式 2：本地开发模式
+
+```bash
+# 1. 仅起 MySQL + Redis
 docker compose up -d
-```
 
-### 1.1 后端
-
-```bash
+# 2. 后端（监听 4000）
 cd backend
 npm install
-copy .env.example .env
-npm run seed        # 初始化板块、管理员、示例数据
-npm run dev         # 启动开发服务（默认 http://localhost:4000）
+cp .env.example .env       # Windows 用 copy
+npm run seed
+npm run dev
+
+# 3. 前端（监听 5173，反代 /api → :4000）
+cd ../frontend
+npm install
+npm run dev
+
+# 4. 跑全量测试
+cd ../backend && npm test  # 224 pass (77 unit + 147 property)
 ```
 
-> 不想用 Docker？把 `.env` 中的 `DB_DIALECT` 改为 `sqlite`，再执行 `npm i sqlite3`（需要本地具备 C/C++ 编译能力）。
+### 默认账号（Mock CAS 模式）
 
-默认账号：
-
-| 角色 | 工号/账号 | 密码 |
+| 角色 | 工号 | 密码 |
 | --- | --- | --- |
 | 超级管理员 | admin | admin123 |
 | 版主 | mod001 | mod123 |
 | 普通用户 | user001 | user123 |
 
-> 真实环境下使用 CAS 单点登录，无需密码；此处密码登录仅用于本地 Mock CAS。
+> 生产环境对接真实 CAS 时无需密码。
 
-### 1.2 前端
-
-```bash
-cd frontend
-npm install
-npm run dev         # 默认 http://localhost:5173
-```
-
-## 切换到生产配置
-
-- **MySQL**：`backend/.env` 中 `DB_DIALECT=mysql` 并填写连接串。
-- **Redis**：填写 `REDIS_URL`，未配置时自动降级为内存缓存。
-- **CAS**：实现 `backend/src/services/casService.js` 中的 `verifyTicket`，对接企业 CAS。
-- **Elasticsearch**：实现 `backend/src/services/searchService.js` 的 ES 客户端版本即可。
-- **AI（DeepSeek）**：在 `backend/.env` 中填写
-
-  ```env
-  AI_PROVIDER=deepseek
-  AI_API_KEY=sk-xxxxxxxx
-  AI_BASE_URL=https://api.deepseek.com
-  AI_MODEL=deepseek-chat
-  ```
-
-  配置后重启后端，发帖 / 评论会走 AI 审核，帖子详情可用 AI 解读，首页"AI 问答"使用站内 RAG。在 `管理后台 → 系统设置` 可一键测试连通性，调用失败会自动降级为本地规则，业务不中断。
+---
 
 ## MCP Server（双向 AI 原生）
 
-本项目额外提供 MCP Server，让外部 AI 助手（Kiro、Claude Desktop、任意 MCP Client）能反向调用社区能力，实现"项目用 AI"+"AI 用项目"双向闭环。
-
-**4 个工具**：`search_posts`（全文搜索）、`get_post`（取帖子）、`ask_community`（站内 RAG 问答）、`recommend_posts`（标签推荐）。
+让外部 AI 助手反向调用社区能力 ——「项目用 AI」+「AI 用项目」双向闭环。
 
 ### 部署形态
-
-生产环境 (`docker-compose.prod.yml`) 中 MCP 以独立容器 `mcp` 运行 HTTP 模式，由 frontend nginx 反代到 `/mcp` 路径，对外只暴露 80/443，3001 端口不绑定主机：
 
 ```
 公网 ──> nginx :80 ──> /api/* ──> backend:4000
                   └─> /mcp    ──> mcp:3001 (独立容器)
 ```
 
-### 在线 MCP 端点
+MCP 容器仅在 Docker 内部网络可达，对外只暴露 80 端口，与主站共用 SSL/域名。
 
-线上演示环境已开放：
+### 在线接入（零安装）
 
-```bash
-# 列出工具
-curl http://124.222.8.86/mcp/tools
-
-# 调用 search_posts
-curl -X POST http://124.222.8.86/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
-       "params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
-```
-
-### 客户端接入（Kiro / Claude Desktop）
+`.kiro/settings/mcp.json` 或 Claude Desktop 配置贴入：
 
 ```json
 {
@@ -148,80 +142,98 @@ curl -X POST http://124.222.8.86/mcp \
 }
 ```
 
-零安装：配置完即可在 IDE 对话框直接提问"搜索社区里关于 React 的帖子"，AI 会自动调用 MCP 工具。
+随后在 IDE 对话框输入「搜索社区里关于 React 的帖子」即可。
 
-### 本地启动 MCP（开发）
-
-```bash
-cd backend
-
-# stdio 模式（本地 IDE）
-node src/mcp/index.js
-
-# HTTP 模式（容器/远端）
-node src/mcp/index.js --http   # 默认监听 0.0.0.0:3001
-```
-
-详细文档见 `backend/src/mcp/README.md`。
-
-## 数据库结构同步
-
-默认启动只跑 `sequelize.sync()`，不会更改已存在的表结构。模型变更后想增量同步一次，启动时设置 `DB_SYNC_ALTER=1`：
+### curl 验证
 
 ```bash
-DB_SYNC_ALTER=1 npm run start
+curl http://124.222.8.86/mcp/tools
+
+curl -X POST http://124.222.8.86/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
+       "params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
 ```
 
-> 不要在长期运行的环境保持 `alter` 开启，Sequelize 会反复追加唯一索引，最终触发 MySQL `Too many keys` 报错。
+详见 [`backend/src/mcp/README.md`](backend/src/mcp/README.md)。
 
-## 已实现的需求映射
+---
 
-| 需求 | 实现位置 |
-| --- | --- |
-| CAS 单点登录 | `backend/src/services/casService.js`、`routes/auth.js` |
-| 用户体系与个人中心 | `models/User.js`、`controllers/userController.js` |
-| 多级板块 | `models/Category.js`、`controllers/categoryController.js` |
-| 帖子（富文本/状态/编辑） | `models/Post.js`、`controllers/postController.js` |
-| 评论 / 引用回复 | `models/Comment.js`、`controllers/commentController.js` |
-| 点赞 / 收藏 | `models/Like.js`、`models/Favorite.js` |
-| 全文搜索与排序 | `services/searchService.js` |
-| 敏感词 / 举报 / 屏蔽 | `services/moderationService.js`、`models/Report.js` |
-| 置顶 / 加精 | `controllers/postController.js`（admin 接口） |
-| 角色权限分级 | `middlewares/auth.js` |
-| 消息通知 | `models/Notification.js`、`services/notificationService.js` |
-| AI 内容审核 / 推荐 / 解读 / 问答 | `services/aiService.js`、`controllers/aiController.js` |
-| 操作审计日志 | `models/AuditLog.js` |
-| XSS / SQL 注入防护 | `helmet`、`sanitize-html`、Sequelize 参数化 |
-
-## 端到端测试
-
-`backend/tests/` 下提供一组黑盒 e2e 用例，用纯 Node 编写、无第三方测试框架，方便在 CI 里直接跑。
+## 测试
 
 ```bash
-# 1) 先在一个终端启动后端
-cd backend
-npm run start
-
-# 2) 另一个终端跑全部用例
-cd backend
-npm run test:e2e
+cd backend && npm test
 ```
 
-| 用例 | 覆盖点 |
-| --- | --- |
-| `auth_basic.e2e.js` | 登录 / 分类 / 发帖 / 点赞收藏 / 评论 / 加精 / 搜索 / admin stats / 通知 |
-| `settings_toggle.e2e.js` | AI 审核开关：开启 vs 关闭时 `aiAuditStatus` 表现 |
-| `ai_audit.e2e.js` | DeepSeek 协议层：mock 模型返回 + 失败降级（不依赖外网） |
-| `post_block.e2e.js` | AI blocked → HTTP 400 + code=4002；草稿不走 AI |
-| `ai_explain.e2e.js` | 帖子解读：首次调用 → 缓存命中 → 开关关闭 4003 |
-| `ai_ask.e2e.js` | 站内 RAG 问答：检索 + 引用映射 + 缓存 + 开关 |
+`npm test` 跑：
 
-依赖：
+- 77 个 unit tests（`tests/unit/`）
+- 147 个 property assertions（`tests/property/`，29 个 PBT 文件覆盖 37 条 Property）
 
-- `auth_basic` / `settings_toggle` / `post_block` / `ai_explain` / `ai_ask` 需要后端在运行、`docker compose up -d` 起的 MySQL/Redis、`seed` 已执行
-- 涉及真实 LLM 的用例需要 `.env` 中配置 DeepSeek `AI_API_KEY`；未配置时会自动跳过严格断言
-- `ai_audit` 不需要后端进程，自带本地 mock，可独立运行
+E2E 测试需要后端运行：
 
-## 开发说明
+```bash
+npm run start            # 终端 A
+npm run test:e2e         # 终端 B（8 个 e2e 文件）
+```
 
-后端入口：`backend/src/app.js`；前端入口：`frontend/src/main.jsx`。代码内含中文注释，方便二次开发。
+CI 状态：每次 push / PR 触发 [GitHub Actions](https://github.com/greymon226/community/actions)，约 2 分钟跑完。
+
+---
+
+## 项目结构
+
+```
+community/
+├── .kiro/
+│   ├── hooks/              ← 4 个 Kiro Hook（已启用）
+│   ├── specs/tech-community-platform/
+│   │   ├── requirements.md ← 27 需求 / 84 EARS AC
+│   │   ├── design.md       ← 37 Properties + 架构设计
+│   │   ├── tasks.md
+│   │   └── ai-collaboration-log.md  ← 8 节点 AI 协作实录
+│   └── settings/mcp.json   ← MCP Server 配置
+├── .github/workflows/test.yml  ← CI
+├── backend/
+│   ├── src/
+│   │   ├── config/         # 配置
+│   │   ├── controllers/    # 控制器（auth / post / comment / ai / admin / ...）
+│   │   ├── models/         # Sequelize 模型
+│   │   ├── services/       # AI / Cache / CAS / Search / Moderation
+│   │   ├── middlewares/    # auth / audit / error
+│   │   ├── mcp/            ← MCP Server 实现
+│   │   ├── routes/index.js
+│   │   └── app.js
+│   ├── tests/
+│   │   ├── unit/           ← 77 unit tests
+│   │   ├── property/       ← 29 PBT files / 147 assertions
+│   │   ├── *.e2e.js        ← 8 e2e flows
+│   │   └── run-suite.js    ← 跨平台测试 runner
+│   └── seed.js
+├── frontend/               # React SPA + nginx 反代配置
+├── deploy/
+│   ├── deploy.sh           # 一键部署 / 更新 / seed
+│   └── README.md
+├── docker-compose.yml       # 本地开发：MySQL + Redis
+├── docker-compose.prod.yml  # 生产：mysql + redis + backend + mcp + frontend
+├── submission/             # 竞赛提交材料（不进 ZIP）
+└── README.md
+```
+
+---
+
+## 端口速查
+
+| 组件 | 容器内 | 主机暴露 |
+| --- | --- | --- |
+| frontend (nginx) | 80 | `${HTTP_PORT:-80}` |
+| backend (Express) | 4000 | 不暴露（仅内部）|
+| mcp (HTTP server) | 3001 | 不暴露（经 nginx /mcp 反代）|
+| mysql | 3306 | 不暴露 |
+| redis | 6379 | 不暴露 |
+
+---
+
+## License
+
+MIT
