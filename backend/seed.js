@@ -118,7 +118,7 @@ async function run() {
         featured: true,
         viewCount: 256,
         likeCount: 18,
-        commentCount: 3,
+        commentCount: 0,
         tagNames: ['AI'],
       },
       // ---- 前端帖子 ----
@@ -130,7 +130,7 @@ async function run() {
         categoryId: catMap.get('React/Vue'),
         likeCount: 24,
         viewCount: 312,
-        commentCount: 5,
+        commentCount: 0,
         featured: true,
         tagNames: ['Vue'],
       },
@@ -142,7 +142,7 @@ async function run() {
         categoryId: catMap.get('React/Vue'),
         likeCount: 32,
         viewCount: 445,
-        commentCount: 7,
+        commentCount: 0,
         tagNames: ['React', '性能优化'],
       },
       // ---- 后端帖子 ----
@@ -154,7 +154,7 @@ async function run() {
         categoryId: catMap.get('Node.js'),
         likeCount: 45,
         viewCount: 678,
-        commentCount: 12,
+        commentCount: 0,
         featured: true,
         pinned: 1,
         tagNames: ['Node.js', '性能优化'],
@@ -167,7 +167,7 @@ async function run() {
         categoryId: catMap.get('Java/Spring'),
         likeCount: 38,
         viewCount: 520,
-        commentCount: 9,
+        commentCount: 0,
         tagNames: ['微服务'],
       },
       {
@@ -178,7 +178,7 @@ async function run() {
         categoryId: catMap.get('Java/Spring'),
         likeCount: 29,
         viewCount: 390,
-        commentCount: 6,
+        commentCount: 0,
         tagNames: [],
       },
       // ---- 测试与运维帖子 ----
@@ -190,7 +190,7 @@ async function run() {
         categoryId: catMap.get('自动化测试'),
         likeCount: 21,
         viewCount: 267,
-        commentCount: 4,
+        commentCount: 0,
         tagNames: [],
       },
       {
@@ -201,7 +201,7 @@ async function run() {
         categoryId: catMap.get('DevOps'),
         likeCount: 33,
         viewCount: 410,
-        commentCount: 8,
+        commentCount: 0,
         tagNames: ['CI/CD'],
       },
       {
@@ -212,7 +212,7 @@ async function run() {
         categoryId: catMap.get('前端开发'),
         likeCount: 27,
         viewCount: 345,
-        commentCount: 6,
+        commentCount: 0,
         tagNames: ['AI'],
       },
       {
@@ -223,7 +223,7 @@ async function run() {
         categoryId: catMap.get('后端开发'),
         likeCount: 55,
         viewCount: 890,
-        commentCount: 15,
+        commentCount: 0,
         featured: true,
         tagNames: ['面试'],
       },
@@ -235,7 +235,7 @@ async function run() {
         categoryId: catMap.get('工程化'),
         likeCount: 19,
         viewCount: 230,
-        commentCount: 4,
+        commentCount: 0,
         tagNames: [],
       },
       {
@@ -246,7 +246,7 @@ async function run() {
         categoryId: catMap.get('Go'),
         likeCount: 16,
         viewCount: 180,
-        commentCount: 3,
+        commentCount: 0,
         tagNames: [],
       },
     ];
