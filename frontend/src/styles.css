@@ -6,6 +6,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "P
 .app-header .logo { font-weight: 600; font-size: 18px; color: #1677ff; cursor: pointer; }
 .app-header .nav { flex: 1; display: flex; gap: 16px; }
 .app-content { max-width: 1200px; width: 100%; margin: 24px auto; padding: 0 16px; }
+.route-loading { min-height: 240px; display: flex; align-items: center; justify-content: center; }
 
 .post-card { background: #fff; padding: 16px; margin-bottom: 12px; border-radius: 8px; transition: box-shadow .2s; }
 .post-card:hover { box-shadow: 0 4px 16px rgba(0,21,41,.08); }

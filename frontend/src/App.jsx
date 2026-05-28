@@ -1,19 +1,18 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Badge, Input, Button } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Badge, Input, Button, Spin } from 'antd';
 import { BellOutlined, UserOutlined, EditOutlined, LogoutOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAuthStore } from './store/auth.js';
 import { authApi, notifApi } from './api';
 
-import HomePage from './pages/HomePage.jsx';
-import PostDetailPage from './pages/PostDetailPage.jsx';
-import PostEditPage from './pages/PostEditPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import ProfilePage from './pages/ProfilePage.jsx';
-import MyCenterPage from './pages/MyCenterPage.jsx';
-import NotificationsPage from './pages/NotificationsPage.jsx';
-import AdminPage from './pages/AdminPage.jsx';
-import { useState } from 'react';
+const HomePage = lazy(() => import('./pages/HomePage.jsx'));
+const PostDetailPage = lazy(() => import('./pages/PostDetailPage.jsx'));
+const PostEditPage = lazy(() => import('./pages/PostEditPage.jsx'));
+const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
+const MyCenterPage = lazy(() => import('./pages/MyCenterPage.jsx'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage.jsx'));
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 
 const { Header, Content } = Layout;
 
@@ -124,18 +123,20 @@ export default function App() {
         )}
       </Header>
       <Content className="app-content">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/post/new" element={<PostEditPage />} />
-          <Route path="/post/edit/:id" element={<PostEditPage />} />
-          <Route path="/post/:id" element={<PostDetailPage />} />
-          <Route path="/profile/:id" element={<ProfilePage />} />
-          <Route path="/me" element={<MyCenterPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/admin/*" element={<AdminPage />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        <Suspense fallback={<div className="route-loading"><Spin /></div>}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/post/new" element={<PostEditPage />} />
+            <Route path="/post/edit/:id" element={<PostEditPage />} />
+            <Route path="/post/:id" element={<PostDetailPage />} />
+            <Route path="/profile/:id" element={<ProfilePage />} />
+            <Route path="/me" element={<MyCenterPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/admin/*" element={<AdminPage />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Suspense>
       </Content>
     </Layout>
   );
