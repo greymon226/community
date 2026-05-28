@@ -72,7 +72,7 @@ node src/mcp/index.js --http
 线上以独立 `mcp` 容器运行 HTTP 模式，由 frontend nginx 反代 `/mcp` 路径，对外不暴露 3001。
 
 ```
-公网 ──> nginx :80 ──> /api/* ──> backend:3000
+公网 ──> nginx :80 ──> /api/* ──> backend:4000
                   └─> /mcp    ──> mcp:3001 (独立容器，仅内部网络)
 ```
 

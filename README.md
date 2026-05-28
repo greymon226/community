@@ -116,7 +116,7 @@ npm run dev         # 默认 http://localhost:5173
 生产环境 (`docker-compose.prod.yml`) 中 MCP 以独立容器 `mcp` 运行 HTTP 模式，由 frontend nginx 反代到 `/mcp` 路径，对外只暴露 80/443，3001 端口不绑定主机：
 
 ```
-公网 ──> nginx :80 ──> /api/* ──> backend:3000
+公网 ──> nginx :80 ──> /api/* ──> backend:4000
                   └─> /mcp    ──> mcp:3001 (独立容器)
 ```
 

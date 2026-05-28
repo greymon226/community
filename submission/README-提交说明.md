@@ -199,27 +199,64 @@ pandoc 01-设计文档.md -o 01-设计文档.pdf \
 
 ## 快速启动（评审用）
 
+### 方式 1：完整 Docker 部署（推荐，与线上一致）
+
 ```bash
 # 1. 克隆仓库
 git clone https://github.com/greymon226/community
 cd community
 
-# 2. 一键启动
+# 2. 配置生产环境变量
+cp deploy/.env.prod.example .env.prod
+# 按需编辑 .env.prod（DB_PASS / JWT_SECRET / AI_API_KEY 等）
+
+# 3. 一键启动（mysql + redis + backend + mcp + frontend nginx）
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+# 4. 等待服务就绪（约 30s）
+docker compose -f docker-compose.prod.yml logs -f backend
+# 看到 "[community-backend] listening on http://localhost:4000" 即可
+
+# 5. 灌种子数据
+docker compose -f docker-compose.prod.yml exec backend node seed.js
+
+# 6. 访问（nginx 统一在 80 端口分流）
+# 前端:        http://localhost
+# API:         http://localhost/api
+# MCP HTTP:    http://localhost/mcp/tools
+```
+
+### 方式 2：本地开发模式
+
+```bash
+# 1. 仅起 MySQL + Redis 容器
 docker compose up -d
 
-# 3. 等待服务就绪（约 30s）
-docker compose logs -f backend  # 看到 "Server running on port 3000" 即可
+# 2. 后端（监听 4000）
+cd backend
+npm install
+copy .env.example .env
+npm run seed
+npm run dev               # http://localhost:4000
 
-# 4. 访问
-# 前端: http://localhost:8080
-# API:  http://localhost:3000/api
+# 3. 前端（Vite dev server，监听 5173，反代 /api → :4000）
+cd ../frontend
+npm install
+npm run dev               # http://localhost:5173
 
-# 5. 运行测试
-cd backend && npm install && npm test
-
-# 6. 单独跑 PBT
-npx jest tests/property/ --verbose
+# 4. 跑全量测试（含 37 条 PBT）
+cd ../backend && npm test
 ```
+
+### 端口速查
+
+| 组件 | 容器内端口 | 主机暴露 |
+| --- | --- | --- |
+| frontend (nginx) | 80 | `${HTTP_PORT:-80}` |
+| backend (express) | 4000 | 不暴露（仅内部网络） |
+| mcp (HTTP server) | 3001 | 不暴露（经 nginx /mcp 反代） |
+| mysql | 3306 | 不暴露 |
+| redis | 6379 | 不暴露 |
 
 ---
 
