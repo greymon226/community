@@ -16,7 +16,19 @@ const { errorHandler, notFound } = require('./middlewares/error');
 const app = express();
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(cors());
+
+// CORS：生产环境限制为前端域名，开发环境放通
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
+  : null; // null → 全放通（本地开发默认行为）
+app.use(cors(ALLOWED_ORIGINS ? {
+  origin(origin, cb) {
+    // 允许无 origin（服务端请求、curl）+ 白名单
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+} : undefined));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));

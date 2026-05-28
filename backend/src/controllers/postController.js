@@ -210,18 +210,20 @@ async function toggleLike(req, res) {
   if (exist) {
     await exist.destroy();
     await post.decrement('likeCount');
-    return ok(res, { liked: false, likeCount: post.likeCount - 1 });
+    await post.reload();
+    return ok(res, { liked: false, likeCount: post.likeCount });
   }
   try {
     await Like.create({ userId: req.user.id, targetType: 'post', targetId: post.id });
   } catch (e) {
-    // Unique constraint → 并发双击，忽略重复（Like 表有 unique index 兜底）
     if (e.name === 'SequelizeUniqueConstraintError') {
+      await post.reload();
       return ok(res, { liked: true, likeCount: post.likeCount });
     }
     throw e;
   }
   await post.increment('likeCount');
+  await post.reload();
   await notify.notify({
     userId: post.authorId,
     fromUserId: req.user.id,
@@ -230,7 +232,7 @@ async function toggleLike(req, res) {
     content: post.title,
     payload: { postId: post.id },
   });
-  return ok(res, { liked: true, likeCount: post.likeCount + 1 });
+  return ok(res, { liked: true, likeCount: post.likeCount });
 }
 
 // POST /posts/:id/favorite
@@ -241,18 +243,21 @@ async function toggleFavorite(req, res) {
   if (exist) {
     await exist.destroy();
     await post.decrement('favoriteCount');
-    return ok(res, { favorited: false, favoriteCount: post.favoriteCount - 1 });
+    await post.reload();
+    return ok(res, { favorited: false, favoriteCount: post.favoriteCount });
   }
   try {
     await Favorite.create({ userId: req.user.id, postId: post.id });
   } catch (e) {
     if (e.name === 'SequelizeUniqueConstraintError') {
+      await post.reload();
       return ok(res, { favorited: true, favoriteCount: post.favoriteCount });
     }
     throw e;
   }
   await post.increment('favoriteCount');
-  return ok(res, { favorited: true, favoriteCount: post.favoriteCount + 1 });
+  await post.reload();
+  return ok(res, { favorited: true, favoriteCount: post.favoriteCount });
 }
 
 // POST /admin/posts/:id/pin     body: { level: 0|1|2 }

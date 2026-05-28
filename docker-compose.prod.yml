@@ -78,6 +78,7 @@ services:
 
       CAS_SERVER_URL: ${CAS_SERVER_URL:-}
       CAS_SERVICE_URL: ${CAS_SERVICE_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://124.222.8.86}
     volumes:
       - uploads-data:/app/uploads
     networks:

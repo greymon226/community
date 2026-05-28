@@ -121,19 +121,21 @@ async function toggleLike(req, res) {
   if (exist) {
     await exist.destroy();
     await c.decrement('likeCount');
-    return ok(res, { liked: false, likeCount: c.likeCount - 1 });
+    await c.reload();
+    return ok(res, { liked: false, likeCount: c.likeCount });
   }
   try {
     await Like.create({ userId: req.user.id, targetType: 'comment', targetId: c.id });
   } catch (e) {
-    // Unique constraint → 并发双击，忽略重复（Like 表有 unique index 兜底）
     if (e.name === 'SequelizeUniqueConstraintError') {
+      await c.reload();
       return ok(res, { liked: true, likeCount: c.likeCount });
     }
     throw e;
   }
   await c.increment('likeCount');
-  return ok(res, { liked: true, likeCount: c.likeCount + 1 });
+  await c.reload();
+  return ok(res, { liked: true, likeCount: c.likeCount });
 }
 
 module.exports = { listByPost, create, remove, toggleLike };
