@@ -267,7 +267,7 @@ KV 设置存储 + 内存缓存：
 
 ### 15. 文件上传（`controllers/uploadController.js`）
 
-`multer.diskStorage` + 扩展名白名单 `{.png, .jpg, .jpeg, .gif, .webp, .svg}` + `MAX_UPLOAD_MB`（默认 10）；同时强制扩展名校验与大小校验，任一失败即返回错误（R10.5）；成功响应 `{ url, originalName, size }`，URL 形如 `/uploads/<ts>-<uuid><ext>`。
+`multer.diskStorage` + 扩展名白名单 `{.png, .jpg, .jpeg, .gif, .webp}` + `MAX_UPLOAD_MB`（默认 10）；同时强制扩展名校验与大小校验，任一失败即返回错误（R10.5）。不接受 SVG，避免同源脚本执行风险；成功响应 `{ url, originalName, size }`，URL 形如 `/uploads/<ts>-<uuid><ext>`。
 
 ### 16. 前端模块（`frontend/src/`）
 
@@ -347,7 +347,7 @@ erDiagram
 
 *A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-下列属性来自对 27 项需求的逐条 prework 分析（见 prework 上下文）。已对原始 84 条 acceptance criteria 做归并去重——许多条目是同一通用规则的不同表述（例如 1.5 / 1.12 / 22.3 都在说"响应永远不含 `passwordHash`"，5.11 / 5.12 / 17.2 / 17.3 都在描述"帖子可见性谓词"），合并后形成 36 条互不冗余、可验证的属性。
+下列属性来自对 27 项需求的逐条 prework 分析（见 prework 上下文）。已对原始 84 条 acceptance criteria 做归并去重——许多条目是同一通用规则的不同表述（例如 1.5 / 1.12 / 22.3 都在说"响应永远不含 `passwordHash`"，5.11 / 5.12 / 17.2 / 17.3 都在描述"帖子可见性谓词"），合并后形成 36 条互不冗余（后续追加 P37 Prompt Injection 检测，最终 37 条）、可验证的属性。
 
 ### Property 1: 任意接口响应都不泄漏 `passwordHash`
 
@@ -543,7 +543,7 @@ erDiagram
 
 ### Property 33: 文件上传双重校验
 
-*For any* 上传请求 `(filename, sizeBytes)`，响应满足：`extname(filename) ∉ {.png,.jpg,.jpeg,.gif,.webp,.svg}` → 4xx + 提示"不支持的文件类型"；`sizeBytes > MAX_UPLOAD_MB * 1024 * 1024` → 4xx + 提示文件超限；两个条件都满足时返回 200 + `{ url, originalName, size }`，且 `url` 形如 `/uploads/<ts>-<uuid><ext>`。
+*For any* 上传请求 `(filename, sizeBytes)`，响应满足：`extname(filename) ∉ {.png,.jpg,.jpeg,.gif,.webp}` → 4xx + 提示"不支持的文件类型"；`sizeBytes > MAX_UPLOAD_MB * 1024 * 1024` → 4xx + 提示文件超限；两个条件都满足时返回 200 + `{ url, originalName, size }`，且 `url` 形如 `/uploads/<ts>-<uuid><ext>`。
 
 **Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 23.10**
 

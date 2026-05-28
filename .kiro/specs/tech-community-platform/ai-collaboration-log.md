@@ -34,7 +34,7 @@
 
 ---
 
-## 节点 2：把 84 条 AC 归并为 36 条 Property
+## 节点 2：把 84 条 AC 归并为 36 条 Property（后增 P37）
 
 **人工输入**：
 
@@ -59,7 +59,7 @@
 4. **`PUT /admin/settings` 写入失败时不能清缓存** — 否则下次读会拿到旧持久化值与失效内存值不一致。落地为 **P27** 与 R21.4。
 5. **引用编号应同时支持"真实帖子 id"与"上下文 1-based 编号"两种语义** — 模型偶尔会输出真实 id 而非 1/2/3。落地为 **P23** 与 `parseCitations` 纯函数。
 
-**最终产物**：[`design.md` § Correctness Properties](./design.md#correctness-properties) — 36 条 Property，每条标注 `Validates: Requirements x.y, ...`，与 84 条 AC 形成完整闭环。
+**最终产物**：[`design.md` § Correctness Properties](./design.md#correctness-properties) — 36 条 Property（后续追加 P37 共 37 条），每条标注 `Validates: Requirements x.y, ...`，与 84 条 AC 形成完整闭环。
 
 ---
 

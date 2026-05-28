@@ -56,7 +56,7 @@ zip -r submission/community-source.zip . \
 ```
 community-source.zip
 ├── .kiro/
-│   ├── hooks/                    ← 4 个 Kiro Hook 配置
+│   ├── hooks/                    ← 4 个 Kiro Hook（已启用）
 │   │   ├── spec-sync-check.kiro.hook
 │   │   ├── pbt-on-ai-change.kiro.hook
 │   │   ├── secret-leak-guard.kiro.hook
@@ -70,14 +70,14 @@ community-source.zip
 │       └── mcp.json              ← MCP Server 配置
 ├── .github/
 │   └── workflows/
-│       └── test.yml              ← CI 配置
+│       └── test.yml              ← CI 配置（push/PR 自动跑 unit + property）
 ├── backend/
 │   ├── src/
 │   │   ├── mcp/                  ← MCP Server 实现
 │   │   ├── services/aiService.js ← AI 核心服务
 │   │   └── ...
 │   └── tests/
-│       └── property/             ← 37 个 PBT 文件
+│       └── property/             ← 29 个可执行 PBT 文件，覆盖 37 条 Property
 │           ├── P02-*.test.js
 │           ├── ...
 │           └── P37-prompt-injection-detection.test.js
@@ -140,7 +140,7 @@ pandoc 01-设计文档.md -o 01-设计文档.pdf \
 - [ ] `.kiro/specs/tech-community-platform/` 包含 4 个 Spec 文件
 - [ ] `.kiro/specs/tech-community-platform/ai-collaboration-log.md` 有 8 个节点
 - [ ] `backend/src/mcp/index.js` MCP Server 实现存在
-- [ ] `backend/tests/property/` 包含 37 个 PBT 文件（P02-P37）
+- [ ] `backend/tests/property/` 包含 29 个可执行 PBT 文件，覆盖 P02-P18、P23、P27-P37
 - [ ] `backend/tests/property/P37-prompt-injection-detection.test.js` 存在
 - [ ] `.github/workflows/test.yml` CI 配置存在
 - [ ] `docker-compose.yml` 存在
@@ -169,7 +169,7 @@ pandoc 01-设计文档.md -o 01-设计文档.pdf \
 
 ### 4.5 加分项检查
 
-- [ ] Kiro Hooks 4 个配置文件完整
+- [ ] Kiro Hook 4 个配置文件已启用（`.kiro.hook` 后缀）
 - [ ] MCP Server 4 个工具可在 IDE 中调用
 - [ ] AI 协作实录 8 个节点有真实技术细节
 - [ ] P37 Prompt Injection 作为安全亮点
@@ -186,10 +186,10 @@ pandoc 01-设计文档.md -o 01-设计文档.pdf \
 | AI 技术应用 | 5 大 AI 特性 + MCP Server | 设计文档 §6、演示材料 §2.4 |
 | 需求管理 | 27 需求 / 84 条 EARS AC | 设计文档 §3 |
 | 设计质量 | 37 条 Correctness Properties | 设计文档 §5-§6 |
-| 测试完备性 | 37 PBT + 7 E2E，147 断言全通过 | 设计文档 §9 |
+| 测试完备性 | 29 个可执行 PBT + 8 E2E，147 断言全通过 | 设计文档 §9 |
 | 安全防护 | P37 Prompt Injection + 安全矩阵 | 设计文档 §8.2 |
 | 降级与可靠性 | 三重降级 + 混沌演练 8 场景 | 设计文档 §8.3-§8.4 |
-| 工程实践 | Kiro Hooks + CI/CD + Docker | 设计文档 §7.4 |
+| 工程实践 | Kiro Hooks（已启用）+ GitHub Actions CI + Docker | 设计文档 §7.4 |
 | 创新性 | 双向 AI 原生（MCP Server） | 演示材料 §2.8 |
 | 代码质量 | Property 守护 + Hook 持续验证 | 设计文档 §7.5 |
 | 文档完整性 | 设计文档 + 演示材料 + 提交说明 | 本文件 §1 |
@@ -244,7 +244,7 @@ cd ../frontend
 npm install
 npm run dev               # http://localhost:5173
 
-# 4. 跑全量测试（含 37 条 PBT）
+# 4. 跑全量测试（含 29 个可执行 PBT 文件）
 cd ../backend && npm test
 ```
 

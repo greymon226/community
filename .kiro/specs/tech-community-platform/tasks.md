@@ -257,7 +257,7 @@
 
 - [x] 12. 文件上传
   - [x] 12.1 对齐 `POST /api/upload` 与静态路由
-    - `multer.diskStorage` + 扩展名白名单 `{.png,.jpg,.jpeg,.gif,.webp,.svg}` + `MAX_UPLOAD_MB`（默认 10）
+    - `multer.diskStorage` + 扩展名白名单 `{.png,.jpg,.jpeg,.gif,.webp}` + `MAX_UPLOAD_MB`（默认 10）
     - 双重校验：扩展名 + 大小，任一失败 → 4xx 不返回成功响应
     - 成功响应 `{ url: '/uploads/<ts>-<uuid><ext>', originalName, size }`
     - 启用 `/uploads/*` 静态路由对外提供文件

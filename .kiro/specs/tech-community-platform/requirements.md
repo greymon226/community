@@ -199,7 +199,7 @@
 #### Acceptance Criteria
 
 1. THE Community_Platform SHALL 通过 `POST /api/upload` 接收 `multipart/form-data` 单文件 `file` 字段
-2. THE Community_Platform SHALL 仅接受扩展名属于 `{.png, .jpg, .jpeg, .gif, .webp, .svg}` 的文件
+2. THE Community_Platform SHALL 仅接受扩展名属于 `{.png, .jpg, .jpeg, .gif, .webp}` 的文件
 3. IF 上传文件扩展名不在白名单，THEN THE Community_Platform SHALL 返回错误"不支持的文件类型"
 4. THE Community_Platform SHALL 限制单文件大小不超过 `MAX_UPLOAD_MB` 配置值（默认 10 MB）
 5. WHEN 上传文件被处理，THE Community_Platform SHALL 同时校验扩展名白名单与大小限制；任一项校验失败时不得返回成功响应，必须返回相应错误

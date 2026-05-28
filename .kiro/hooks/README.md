@@ -24,14 +24,21 @@
 - runCommand 类 hook 在后台跑，输出失败时才打断
 - askAgent 类 hook 只在有真实问题时才打扰人
 
-### 3. 与 36 条 Property 形成正反馈
+### 3. 与 37 条 Property 形成正反馈
 - Hook 触发 PBT → PBT 抓到反例 → 修复 → spec 演进 → 新 Hook → 更稳的代码
 - 每次 AI 改动都被 Property 守护，不可能引入"通过编译但破坏不变量"的回归
 
-## 安装/启用
+## 启用状态
 
-Hook 文件由 Kiro IDE 自动识别。在 IDE 的 Explorer → "Agent Hooks" 面板里
-可以看到这 4 个 Hook 的开关与执行历史。
+4 个 Hook 默认 **已启用**（文件以 `.kiro.hook` 结尾），Kiro IDE 打开本仓库后
+会在 Explorer → "Agent Hooks" 面板里自动识别并加载。
+
+如需临时禁用某个 Hook，把对应文件重命名加上 `.disabled` 后缀即可：
+
+```bash
+# 临时关闭 secret-leak-guard
+mv .kiro/hooks/secret-leak-guard.kiro.hook .kiro/hooks/secret-leak-guard.kiro.hook.disabled
+```
 
 如需新增 Hook：
 - IDE 命令面板 → "Open Kiro Hook UI"
