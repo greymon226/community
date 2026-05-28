@@ -10,9 +10,10 @@
 | --- | --- | --- | --- |
 | 1 | 设计文档 | `submission/01-设计文档.md` | 10 章完整技术设计 |
 | 2 | 演示材料 | `submission/02-演示材料.md` | PPT 脚本 + 评审辅助 |
-| 3 | 源代码 ZIP | `submission/community-source.zip` | 含 .kiro/ 完整目录 |
-| 4 | 线上演示环境 | http://124.222.8.86 | Docker Compose 部署 |
-| 5 | Git 仓库 | https://github.com/greymon226/community | 含完整提交历史 |
+| 3 | AI 协作关键决策 | `submission/03-AI协作关键决策.md` | 23 条决策的人证物证 |
+| 4 | 源代码 ZIP | `submission/community-source.zip` | 含 .kiro/ 完整目录 |
+| 5 | 线上演示环境 | http://124.222.8.86 | Docker Compose 部署 |
+| 6 | Git 仓库 | https://github.com/greymon226/community | 含完整提交历史 |
 
 ---
 
@@ -86,7 +87,7 @@ community-source.zip
 └── README.md
 ```
 
-> 注：`submission/` 下的 `01-设计文档.md` / `02-演示材料.md` / `README-提交说明.md` 不进 ZIP，作为独立 PDF 单独提交。
+> 注：`submission/` 下的 `01-设计文档.md` / `02-演示材料.md` / `03-AI协作关键决策.md` / `README-提交说明.md` 不进 ZIP，作为独立 PDF 单独提交。
 
 ---
 
@@ -149,7 +150,8 @@ pandoc 01-设计文档.md -o 01-设计文档.pdf \
 ### 4.3 文档检查
 
 - [ ] `01-设计文档.md` 10 章完整
-- [ ] `02-演示材料.md` 7 节完整
+- [ ] `02-演示材料.md` 8 节完整
+- [ ] `03-AI协作关键决策.md` 23 条决策完整
 - [ ] 所有 Mermaid 图可渲染
 - [ ] 错误码表包含 4005（Prompt Injection）
 - [ ] Property 数量统一为 37 条（含 P37）
