@@ -290,6 +290,6 @@ bootstrap()
     process.stderr.write('[MCP] Community Platform MCP server ready\n');
   })
   .catch((err) => {
-    process.stderr.write(`[MCP] Bootstrap failed: ${err.message}\n`);
-    process.exit(1);
+    // DB 连不上时仍然启动 MCP server，但工具调用会报错
+    process.stderr.write(`[MCP] Bootstrap warning: ${err.message} - server will start but tools may fail\n`);
   });
