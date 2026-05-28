@@ -76,6 +76,7 @@ export default function PostDetailPage() {
   };
   const submitComment = async () => {
     if (!content.trim()) return;
+    if (content.trim().length < 2) { message.warning('评论至少 2 个字'); return; }
     try {
       const r = await commentApi.create(post.id, { content, replyToId: replyTo?.id || null });
       setContent('');
@@ -192,7 +193,9 @@ export default function PostDetailPage() {
             <Input.TextArea
               rows={3}
               value={content}
-              placeholder={replyTo ? `回复 @${replyTo.author?.nickname || replyTo.author?.name}` : '说点什么...'}
+              maxLength={500}
+              showCount
+              placeholder={replyTo ? `回复 @${replyTo.author?.nickname || replyTo.author?.name}` : '说点什么（至少 2 字）...'}
               onChange={(e) => setContent(e.target.value)}
             />
             <Button type="primary" onClick={submitComment} style={{ height: 'auto' }}>发布</Button>

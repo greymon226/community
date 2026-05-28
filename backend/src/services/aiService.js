@@ -29,8 +29,8 @@ async function auditContent({ title = '', content = '' }) {
   const cleanContent = cleanPlainText(content);
   const t0 = Date.now();
 
-  // 1. 长度兜底：内容过短无需调模型
-  if ((cleanTitle + cleanContent).trim().length < 5) {
+  // 1. 长度兜底：内容过短无需调模型（中文 2 字以内视为无效）
+  if ((cleanTitle + cleanContent).trim().length < 2) {
     return { status: 'review', reason: '内容过短，疑似无效内容' };
   }
 
