@@ -253,20 +253,21 @@ async function run() {
 
     let createdCount = 0;
     let skippedCount = 0;
+    let restoredCount = 0;
     for (const data of samplePosts) {
       const { title, tagNames, ...defaults } = data;
       // 查找同名帖子（包括已删除的）
       let post = await Post.findOne({ where: { title } });
-      let created = false;
       if (!post) {
         post = await Post.create({ title, ...defaults });
-        created = true;
+        createdCount++;
       } else if (post.status === 'deleted' || post.status === 'blocked') {
         // 帖子被删除/屏蔽后重新 seed → 恢复为 published
         await post.update({ ...defaults, status: 'published' });
+        restoredCount++;
+      } else {
+        skippedCount++;
       }
-      if (created) createdCount++;
-      else skippedCount++;
 
       // 同步 PostTag（已存在则跳过）
       for (const tagName of (tagNames || [])) {
@@ -279,7 +280,7 @@ async function run() {
         }
       }
     }
-    console.log(`  帖子：新增 ${createdCount} 篇，已存在跳过 ${skippedCount} 篇`);
+    console.log(`  帖子：新增 ${createdCount} 篇，恢复 ${restoredCount} 篇，已存在跳过 ${skippedCount} 篇`);
   }
 
   console.log('Seed 完成。账号：');
