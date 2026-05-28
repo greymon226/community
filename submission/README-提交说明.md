@@ -83,12 +83,10 @@ community-source.zip
 │           └── P37-prompt-injection-detection.test.js
 ├── frontend/
 ├── docker-compose.yml
-├── submission/
-│   ├── 01-设计文档.md
-│   ├── 02-演示材料.md
-│   └── README-提交说明.md
 └── README.md
 ```
+
+> 注：`submission/` 下的 `01-设计文档.md` / `02-演示材料.md` / `README-提交说明.md` 不进 ZIP，作为独立 PDF 单独提交。
 
 ---
 

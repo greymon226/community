@@ -31,8 +31,8 @@ $ExcludeDirs = @(
   'backups',
   '.idea',
   '.cache',
-  '.vite'
-  # 注意：submission/ 不再整体排除，需要保留 .md 文件给评委
+  '.vite',
+  'submission'   # 不打包 submission（设计文档/演示材料单独 PDF 提交，避免循环 + 减小体积）
 )
 
 $ExcludeFiles = @(
@@ -40,10 +40,9 @@ $ExcludeFiles = @(
   '.env.prod',
   '.env.local',
   '*.log',
-  'community-source.zip',   # 排除自身（避免循环）
-  '~$*',                     # Word 临时文件
+  '~$*',         # Word 临时文件
   '*.tmp',
-  '*.tar.gz'                 # sqlite3 等编译时产物
+  '*.tar.gz'     # sqlite3 等编译时产物
 )
 
 Write-Host "[pack] staging: $Staging" -ForegroundColor Blue
