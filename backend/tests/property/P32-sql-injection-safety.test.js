@@ -18,10 +18,7 @@
 // Additionally, the LIKE wildcard escape sub-test (P32.D) checks that a
 // keyword consisting solely of `%` does NOT return every published row —
 // the implementation must escape `_` and `%` before interpolating into the
-// LIKE pattern. If the implementation does NOT escape these (which is the
-// case on the current codebase: `LIKE '%' + keyword + '%'`), this sub-test
-// will be marked with `// PBT FOUND BUG:` and skipped via `t.skip()` so the
-// other safety invariants still run green.
+// LIKE pattern.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -226,25 +223,11 @@ test('P32.C: total ≤ |published posts| and every item.status === "published"',
 //     `LIKE '%%%'` ≡ `LIKE '%'`
 // which matches EVERY non-NULL value, returning ALL published posts.
 //
-// PBT FOUND BUG: searchService.js does not escape `%` and `_` in the
-// keyword before interpolating into the LIKE pattern. A user searching for
-// the literal string `%` (or any string containing `_` / `%`) gets unrelated
-// results, which is a low-severity correctness bug (not a SQL-injection
-// vulnerability, since values are still parameterized via Sequelize).
-//
-// We skip this sub-test rather than fail the property suite, per task
-// instructions ("If the implementation does NOT escape them, mark this
-// sub-test with `// PBT FOUND BUG:` and `t.skip()`"). The skipped test is
-// preserved as executable documentation so a future fix (escaping % / _ /
-// \) flips it back to passing.
 // ============================================================================
-test('P32.D: keyword="%" must NOT return all published posts (LIKE wildcard escape)', (t) => {
-  // PBT FOUND BUG: searchService.js builds `LIKE '%' + keyword + '%'` without
-  // escaping `%` / `_`, so the literal keyword `%` matches everything. Skip
-  // until a fix lands.
-  t.skip(
-    'PBT FOUND BUG: searchService.js does not escape LIKE metachars (%, _, \\) ' +
-      'in the user-supplied keyword. A literal "%" keyword therefore matches ' +
-      'every published row. See design.md Property 32 / Requirement 23.7.'
+test('P32.D: keyword="%" must NOT return all published posts (LIKE wildcard escape)', async () => {
+  const r = await searchPosts({ keyword: '%', sort: 'latest', page: 1, pageSize: 50 });
+  assert.ok(
+    r.total < PUBLISHED_TOTAL,
+    `literal "%" must not behave as LIKE wildcard and return all published rows; got total=${r.total}`
   );
 });

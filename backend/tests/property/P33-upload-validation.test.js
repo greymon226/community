@@ -6,7 +6,7 @@
 //
 // 不变量（来自 design.md）：
 //   对任意上传请求 (filename, sizeBytes)：
-//     - 扩展名 ∉ {.png,.jpg,.jpeg,.gif,.webp,.svg} → 拒绝（4xx + "不支持的文件类型"）
+//     - 扩展名 ∉ {.png,.jpg,.jpeg,.gif,.webp} → 拒绝（4xx + "不支持的文件类型"）
 //     - 文件大小 > MAX_UPLOAD_MB * 1024 * 1024 → 拒绝
 //     - 任一校验失败 → 不返回成功响应、不写入文件
 //     - 两项均通过 → 200 + { url, originalName, size }
@@ -40,7 +40,7 @@ const {
 
 // ---------- arbitraries ----------
 
-const ALLOWED_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+const ALLOWED_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 const DISALLOWED_EXTS = [
   '.exe',
   '.sh',
@@ -106,7 +106,7 @@ const URL_RE = new RegExp(
 );
 
 // ============================================================================
-// P33.A: extension whitelist is exactly {.png,.jpg,.jpeg,.gif,.webp,.svg}
+// P33.A: extension whitelist is exactly {.png,.jpg,.jpeg,.gif,.webp}
 // ============================================================================
 
 test('P33.A: ALLOWED set equals the design-document whitelist', () => {

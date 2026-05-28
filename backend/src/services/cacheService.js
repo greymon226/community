@@ -22,8 +22,12 @@ async function init() {
 
 async function get(key) {
   if (client) {
-    const v = await client.get(key);
-    return v ? JSON.parse(v) : null;
+    try {
+      const v = await client.get(key);
+      return v ? JSON.parse(v) : null;
+    } catch (err) {
+      fallbackToMemory(err);
+    }
   }
   const entry = memoryStore.get(key);
   if (!entry) return null;
@@ -36,8 +40,12 @@ async function get(key) {
 
 async function set(key, value, ttlSeconds = 60) {
   if (client) {
-    await client.set(key, JSON.stringify(value), { EX: ttlSeconds });
-    return;
+    try {
+      await client.set(key, JSON.stringify(value), { EX: ttlSeconds });
+      return;
+    } catch (err) {
+      fallbackToMemory(err);
+    }
   }
   memoryStore.set(key, {
     value,
@@ -47,10 +55,24 @@ async function set(key, value, ttlSeconds = 60) {
 
 async function del(key) {
   if (client) {
-    await client.del(key);
-    return;
+    try {
+      await client.del(key);
+      return;
+    } catch (err) {
+      fallbackToMemory(err);
+    }
   }
   memoryStore.delete(key);
+}
+
+function fallbackToMemory(err) {
+  console.warn('[Redis] operation failed, fallback to memory cache:', err.message);
+  try {
+    client?.disconnect?.();
+  } catch {
+    // ignore disconnect errors; memory cache is already taking over
+  }
+  client = null;
 }
 
 module.exports = { init, get, set, del };

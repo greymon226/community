@@ -1,18 +1,14 @@
 'use strict';
 
 // 搜索服务抽象：默认基于数据库 LIKE，可替换为 Elasticsearch
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const { Post, User, Category, Tag } = require('../models');
 const { cleanPlainText } = require('../utils/sanitize');
 
 async function searchPosts({ keyword, categoryId, authorId, tag, sort = 'latest', page = 1, pageSize = 10 }) {
   const where = { status: 'published' };
   if (keyword) {
-    where[Op.or] = [
-      { title: { [Op.like]: `%${keyword}%` } },
-      { content: { [Op.like]: `%${keyword}%` } },
-      { summary: { [Op.like]: `%${keyword}%` } },
-    ];
+    where[Op.and] = [buildLikeSearchCondition(keyword, ['title', 'content', 'summary'])];
   }
   if (categoryId) where.categoryId = categoryId;
   if (authorId) where.authorId = authorId;
@@ -73,9 +69,7 @@ async function searchForRAG(question, { topN = 5 } = {}) {
 
   const orClauses = [];
   for (const t of tokens) {
-    orClauses.push({ title: { [Op.like]: `%${t}%` } });
-    orClauses.push({ content: { [Op.like]: `%${t}%` } });
-    orClauses.push({ summary: { [Op.like]: `%${t}%` } });
+    orClauses.push(buildLikeSearchCondition(t, ['title', 'content', 'summary']));
   }
 
   // 召回更多候选，再用本地评分排序后取 topN
@@ -159,4 +153,15 @@ function extractSnippet(text, tokens, maxLen = 600) {
   const start = Math.max(0, pos - Math.floor(maxLen / 3));
   const end = Math.min(text.length, start + maxLen);
   return (start > 0 ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
+}
+
+function escapeLikeKeyword(value) {
+  return String(value || '').replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+function buildLikeSearchCondition(keyword, fields) {
+  const pattern = `%${escapeLikeKeyword(keyword)}%`;
+  const escapedPattern = Post.sequelize.escape(pattern);
+  const conditions = fields.map((field) => `\`Post\`.\`${field}\` LIKE ${escapedPattern} ESCAPE '\\'`);
+  return literal(`(${conditions.join(' OR ')})`);
 }

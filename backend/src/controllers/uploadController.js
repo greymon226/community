@@ -9,7 +9,7 @@ const { ok, fail } = require('../utils/response');
 
 fs.mkdirSync(config.upload.dir, { recursive: true });
 
-const ALLOWED = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const ALLOWED = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 
 // --- Pure validation helpers (also exported via `__test` for property tests) ---
 

@@ -150,7 +150,17 @@ async function askStream(req, res) {
   res.setHeader('X-Accel-Buffering', 'no'); // 关闭 Nginx 缓冲
   res.flushHeaders?.();
 
+  const abort = new AbortController();
+  let closed = false;
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      closed = true;
+      abort.abort();
+    }
+  });
+
   const send = (type, payload) => {
+    if (closed || res.writableEnded) return;
     res.write(`data: ${JSON.stringify({ type, payload })}\n\n`);
   };
 
@@ -176,13 +186,13 @@ async function askStream(req, res) {
           full: data.full,
         });
       }
-    });
+    }, { signal: abort.signal });
     // 流式调用占用一次额度
-    await cache.set(quotaKey, used + 1, 24 * 3600);
+    if (!closed) await cache.set(quotaKey, used + 1, 24 * 3600);
   } catch (e) {
-    send('error', { message: e.message });
+    if (!closed) send('error', { message: e.message });
   } finally {
-    res.end();
+    if (!res.writableEnded) res.end();
   }
 }
 

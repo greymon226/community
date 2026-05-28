@@ -376,7 +376,7 @@ async function explainCode({ snippet, language = '' }) {
  *   type: 'meta' | 'delta' | 'done' | 'error'
  *   data: { text? } | { meta } | { full, usage, citedSourceIds }
  */
-async function streamAnswer(question, sources, onChunk) {
+async function streamAnswer(question, sources, onChunk, options = {}) {
   const q = cleanPlainText(String(question || '')).slice(0, 500);
   if (!q) throw new Error('问题不能为空');
 
@@ -425,6 +425,12 @@ async function streamAnswer(question, sources, onChunk) {
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), config.ai.timeoutMs * 2);
+  const externalSignal = options.signal;
+  const onAbort = () => ctrl.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) ctrl.abort();
+    else externalSignal.addEventListener('abort', onAbort, { once: true });
+  }
   let resp;
   try {
     resp = await fetch(url, {
@@ -438,11 +444,13 @@ async function streamAnswer(question, sources, onChunk) {
     });
   } catch (e) {
     clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', onAbort);
     throw e;
   }
 
   if (!resp.ok || !resp.body) {
     clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', onAbort);
     const text = await resp.text().catch(() => '');
     throw new Error(`LLM stream HTTP ${resp.status}: ${text.slice(0, 200)}`);
   }
@@ -480,6 +488,7 @@ async function streamAnswer(question, sources, onChunk) {
     }
   } finally {
     clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', onAbort);
   }
 
   // 解析回答里出现的 [n] 编号 → 真实帖子 ID

@@ -19,7 +19,7 @@
 //   1. search_posts   — 全文搜索帖子
 //   2. get_post       — 获取帖子详情
 //   3. ask_community  — 站内 RAG 问答（非流式）
-//   4. recommend      — 基于标签推荐帖子
+//   4. recommend_posts — 基于标签推荐帖子
 // ============================================================
 
 const readline = require('readline');
@@ -141,7 +141,7 @@ async function executeTool(name, args) {
           { association: 'tags', attributes: ['id', 'name'] },
         ],
       });
-      if (!post || post.status === 'deleted') {
+      if (!post || post.status !== 'published') {
         return { error: '帖子不存在' };
       }
       // 去掉 HTML 标签只保留纯文本
