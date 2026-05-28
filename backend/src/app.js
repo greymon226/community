@@ -32,6 +32,18 @@ app.use(
   })
 );
 
+// AI 接口独立限流（更严格：每用户每分钟 20 次）
+app.use(
+  '/api/ai/',
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { code: 429, message: 'AI 接口请求过于频繁，请稍后再试', data: null },
+  })
+);
+
 // 静态资源
 app.use('/uploads', express.static(config.upload.dir));
 
@@ -46,6 +58,12 @@ app.use(notFound);
 app.use(errorHandler);
 
 async function bootstrap() {
+  // 生产环境安全检查：JWT_SECRET 必须显式配置
+  if (process.env.NODE_ENV === 'production' && config.jwt.secret === 'dev-secret-change-me') {
+    console.error('[FATAL] JWT_SECRET 未设置，生产环境不允许使用默认值。请在 .env 中配置 JWT_SECRET。');
+    process.exit(1);
+  }
+
   try {
     await db.sequelize.authenticate();
     // 默认仅用 sync()（已存在的表不会变更）。如需根据模型变更增量更新表结构，

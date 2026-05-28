@@ -4,9 +4,12 @@ const config = require('../config');
 const { SensitiveWord } = require('../models');
 
 let cachedWords = null;
+let cacheLoadedAt = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟自动刷新，防止直接改 DB 后缓存不同步
 
 async function loadWords() {
-  if (cachedWords) return cachedWords;
+  const now = Date.now();
+  if (cachedWords && (now - cacheLoadedAt) < CACHE_TTL_MS) return cachedWords;
   const list = await SensitiveWord.findAll();
   cachedWords = list.map((w) => ({ word: w.word, strategy: w.strategy }));
   // 兼容 .env 中配置的兜底词库
@@ -15,11 +18,13 @@ async function loadWords() {
       cachedWords.push({ word: w, strategy: 'mask' });
     }
   }
+  cacheLoadedAt = now;
   return cachedWords;
 }
 
 function invalidate() {
   cachedWords = null;
+  cacheLoadedAt = 0;
 }
 
 /**
