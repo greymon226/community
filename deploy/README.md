@@ -2,8 +2,9 @@
 
 这套脚本把 Community Platform 用 Docker Compose 跑起来，包含：
 
-- `frontend` 容器：Nginx 托管前端静态文件 + 反向代理 `/api` 与 `/uploads`
+- `frontend` 容器：Nginx 托管前端静态文件 + 反向代理 `/api`、`/uploads`、`/mcp`
 - `backend` 容器：Node.js 运行时
+- `mcp` 容器：MCP HTTP Server（外部 AI 调用社区能力的入口）
 - `mysql` 容器：MySQL 8（仅在 docker 内网可访问）
 - `redis` 容器：Redis 7（带密码，仅在 docker 内网可访问）
 
@@ -107,6 +108,52 @@ sudo certbot --nginx -d community.example.com
   0 3 * * * cd /opt/community && bash deploy/deploy.sh backup >> /var/log/community-backup.log 2>&1
   ```
 - [ ] 把 `backups/` 同步到对象存储（OSS/COS/S3）
+
+## MCP Server（外部 AI 调用入口）
+
+部署后会自动启动独立的 `community-mcp` 容器，提供 HTTP 模式的 MCP Server。
+通过 frontend 容器的 nginx 反代到 80 端口的 `/mcp` 路径，**不暴露独立端口**，
+对外只需要开放 80（或 HTTPS 443）即可。
+
+### 外部 AI 助手配置
+
+在 Kiro / Claude Desktop / Cursor 的 `mcp.json` 里加：
+
+```json
+{
+  "mcpServers": {
+    "community-platform": {
+      "url": "http://你的域名/mcp",
+      "disabled": false,
+      "autoApprove": ["search_posts", "get_post", "recommend_posts"]
+    }
+  }
+}
+```
+
+### 提供的 4 个工具
+
+| 工具 | 用途 | 典型用法 |
+| --- | --- | --- |
+| `search_posts` | 全文搜索帖子 | "搜索社区里关于 React hooks 的帖子" |
+| `get_post` | 获取帖子完整内容 | "把帖子 42 的内容拿给我看看" |
+| `ask_community` | 站内 RAG 问答 | "公司内部 Node.js 怎么做连接池优化？" |
+| `recommend_posts` | 标签推荐帖子 | "给我推荐 React 和 TypeScript 相关的帖子" |
+
+### 调试
+
+```bash
+# 查看 MCP 容器日志
+docker compose -f docker-compose.prod.yml logs -f mcp
+
+# 测试 tools 列表
+curl http://你的域名/mcp/tools
+
+# 测试调用 search_posts
+curl -X POST http://你的域名/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
+```
 
 ## 常见问题
 

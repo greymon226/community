@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "community-platform": {
-      "url": "http://124.222.8.86:3001/mcp",
+      "url": "http://124.222.8.86/mcp",
       "disabled": false,
       "autoApprove": ["search_posts", "get_post", "recommend_posts"]
     }

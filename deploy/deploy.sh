@@ -282,15 +282,18 @@ cmd_nuke() {
 }
 
 show_access_info() {
-  local port domain
+  local port domain port_suffix
   port="$(grep ^HTTP_PORT "$ENV_FILE" | cut -d= -f2)"
   domain="$(grep ^PUBLIC_DOMAIN "$ENV_FILE" | cut -d= -f2)"
-  section "访问入口"
   if [[ "$port" == "80" ]]; then
-    log "  http://${domain}/"
+    port_suffix=""
   else
-    log "  http://${domain}:${port}/"
+    port_suffix=":${port}"
   fi
+  section "访问入口"
+  log "  Web 站点：http://${domain}${port_suffix}/"
+  log "  MCP API ：http://${domain}${port_suffix}/mcp           (POST JSON-RPC)"
+  log "  MCP 工具：http://${domain}${port_suffix}/mcp/tools     (GET 调试用)"
   log "  管理后台：登录后访问 / 中的管理入口"
   warn "首次部署请运行：bash deploy/deploy.sh seed"
   warn "建议接入 HTTPS：用 Nginx 在主机层做反代（见 deploy/README.md）"

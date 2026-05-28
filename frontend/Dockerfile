@@ -19,6 +19,8 @@ COPY nginx.conf /etc/nginx/templates/default.conf.template
 # 让 nginx 镜像自带的入口在启动时把模板渲染到 /etc/nginx/conf.d/
 ENV BACKEND_HOST=backend
 ENV BACKEND_PORT=4000
+ENV MCP_HOST=mcp
+ENV MCP_PORT=3001
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
