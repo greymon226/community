@@ -31,8 +31,8 @@ $ExcludeDirs = @(
   'backups',
   '.idea',
   '.cache',
-  '.vite',
-  'submission'   # 不把 submission 目录自身放进去，避免循环
+  '.vite'
+  # 注意：submission/ 不再整体排除，需要保留 .md 文件给评委
 )
 
 $ExcludeFiles = @(
@@ -40,10 +40,10 @@ $ExcludeFiles = @(
   '.env.prod',
   '.env.local',
   '*.log',
-  'community-source.zip',
-  '~$*',         # Word 临时文件
+  'community-source.zip',   # 排除自身（避免循环）
+  '~$*',                     # Word 临时文件
   '*.tmp',
-  '*.tar.gz'     # sqlite3 等编译时产物
+  '*.tar.gz'                 # sqlite3 等编译时产物
 )
 
 Write-Host "[pack] staging: $Staging" -ForegroundColor Blue
@@ -77,6 +77,15 @@ if ($LASTEXITCODE -gt 7) {
 Get-ChildItem -Path $Staging -Recurse -Force -Include '.env*' -ErrorAction SilentlyContinue |
   Where-Object { $_.Name -ne '.env.example' -and $_.Name -ne '.env.prod.example' } |
   Remove-Item -Force -ErrorAction SilentlyContinue
+
+# 把 .kiro.hook.disabled 还原为 .kiro.hook（开发期我们临时禁用避免拦截，
+# 但 ZIP 给评委的应是已启用状态）
+Get-ChildItem -Path (Join-Path $Staging '.kiro/hooks') -Filter '*.kiro.hook.disabled' -ErrorAction SilentlyContinue |
+  ForEach-Object {
+    $newName = $_.Name -replace '\.disabled$', ''
+    Move-Item -Path $_.FullName -Destination (Join-Path $_.DirectoryName $newName) -Force
+    Write-Host "[pack] enabled hook in zip: $newName" -ForegroundColor DarkCyan
+  }
 
 # 验证关键资产存在
 $MustExist = @(
