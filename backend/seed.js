@@ -255,10 +255,16 @@ async function run() {
     let skippedCount = 0;
     for (const data of samplePosts) {
       const { title, tagNames, ...defaults } = data;
-      const [post, created] = await Post.findOrCreate({
-        where: { title },
-        defaults: { title, ...defaults },
-      });
+      // 查找同名帖子（包括已删除的）
+      let post = await Post.findOne({ where: { title } });
+      let created = false;
+      if (!post) {
+        post = await Post.create({ title, ...defaults });
+        created = true;
+      } else if (post.status === 'deleted' || post.status === 'blocked') {
+        // 帖子被删除/屏蔽后重新 seed → 恢复为 published
+        await post.update({ ...defaults, status: 'published' });
+      }
       if (created) createdCount++;
       else skippedCount++;
 
