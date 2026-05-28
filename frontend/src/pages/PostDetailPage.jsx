@@ -140,8 +140,6 @@ export default function PostDetailPage() {
           {post.pinned > 0 && <Tag color="orange">{post.pinned === 2 ? '全站置顶' : '置顶'}</Tag>}
           {post.featured && <Tag color="magenta">精华</Tag>}
           {post.status === 'blocked' && <Tag color="red">已屏蔽</Tag>}
-          {post.aiAuditStatus === 'review' && <Tag color="gold">AI 审核中</Tag>}
-          {post.aiAuditStatus === 'skipped' && <Tag>AI 审核未启用</Tag>}
         </Space>
         <h1 style={{ marginTop: 0 }}>{post.title}</h1>
         <Space size="middle" style={{ color: '#8c8c8c', marginBottom: 16 }}>
