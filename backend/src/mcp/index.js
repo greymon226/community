@@ -265,31 +265,130 @@ async function handleMessage(raw) {
   if (id) sendError(id, -32601, `Method not found: ${method}`);
 }
 
-// Parse Content-Length framed messages from stdin
-process.stdin.on('data', (chunk) => {
-  buffer += chunk.toString();
-  while (true) {
-    const headerEnd = buffer.indexOf('\r\n\r\n');
-    if (headerEnd === -1) break;
-    const header = buffer.slice(0, headerEnd);
-    const match = header.match(/Content-Length:\s*(\d+)/i);
-    if (!match) { buffer = buffer.slice(headerEnd + 4); continue; }
-    const len = parseInt(match[1], 10);
-    const bodyStart = headerEnd + 4;
-    if (buffer.length < bodyStart + len) break; // wait for more data
-    const body = buffer.slice(bodyStart, bodyStart + len);
-    buffer = buffer.slice(bodyStart + len);
-    handleMessage(body);
-  }
-});
-
 // ---- Main ----
-bootstrap()
-  .then(() => {
-    // Server is ready, listening on stdin
-    process.stderr.write('[MCP] Community Platform MCP server ready\n');
-  })
-  .catch((err) => {
-    // DB 连不上时仍然启动 MCP server，但工具调用会报错
-    process.stderr.write(`[MCP] Bootstrap warning: ${err.message} - server will start but tools may fail\n`);
+const MODE = process.argv.includes('--http') ? 'http' : 'stdio';
+const HTTP_PORT = parseInt(process.env.MCP_PORT || '3001', 10);
+
+if (MODE === 'http') {
+  // ============================================================
+  // HTTP 传输模式 — 部署到服务器后外部 AI 通过网络调用
+  //
+  // 启动：node backend/src/mcp/index.js --http
+  // 端口：MCP_PORT 环境变量，默认 3001
+  //
+  // 接口：
+  //   POST /mcp  — JSON-RPC 2.0 请求（与 stdio 模式相同的协议）
+  //   GET  /mcp/tools — 快捷查看工具列表（便于调试）
+  //
+  // 外部 AI 配置示例（mcp.json）：
+  //   { "mcpServers": { "community": { "url": "http://124.222.8.86:3001/mcp" } } }
+  // ============================================================
+  const http = require('http');
+
+  const server = http.createServer(async (req, res) => {
+    // CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+    // GET /mcp/tools — 便捷调试
+    if (req.method === 'GET' && req.url === '/mcp/tools') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ tools: TOOLS }, null, 2));
+      return;
+    }
+
+    // POST /mcp — JSON-RPC 2.0
+    if (req.method === 'POST' && req.url === '/mcp') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', async () => {
+        let msg;
+        try { msg = JSON.parse(body); } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          return;
+        }
+
+        const { id, method, params } = msg;
+        let response;
+
+        if (method === 'initialize') {
+          response = { jsonrpc: '2.0', id, result: {
+            protocolVersion: '2024-11-05',
+            capabilities: { tools: {} },
+            serverInfo: { name: 'community-platform-mcp', version: '1.0.0' },
+          }};
+        } else if (method === 'tools/list') {
+          response = { jsonrpc: '2.0', id, result: { tools: TOOLS } };
+        } else if (method === 'tools/call') {
+          const toolName = params?.name;
+          const toolArgs = params?.arguments || {};
+          try {
+            const result = await executeTool(toolName, toolArgs);
+            response = { jsonrpc: '2.0', id, result: {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            }};
+          } catch (e) {
+            response = { jsonrpc: '2.0', id, result: {
+              content: [{ type: 'text', text: `Error: ${e.message}` }],
+              isError: true,
+            }};
+          }
+        } else {
+          response = { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(response));
+      });
+      return;
+    }
+
+    res.writeHead(404);
+    res.end('Not Found. Use POST /mcp or GET /mcp/tools');
   });
+
+  bootstrap()
+    .then(() => {
+      server.listen(HTTP_PORT, () => {
+        console.log(`[MCP-HTTP] Community Platform MCP server listening on http://0.0.0.0:${HTTP_PORT}/mcp`);
+        console.log(`[MCP-HTTP] Tools list: http://0.0.0.0:${HTTP_PORT}/mcp/tools`);
+      });
+    })
+    .catch((err) => {
+      console.warn(`[MCP-HTTP] Bootstrap warning: ${err.message} - server starting anyway`);
+      server.listen(HTTP_PORT, () => {
+        console.log(`[MCP-HTTP] Server listening (DB unavailable) on http://0.0.0.0:${HTTP_PORT}/mcp`);
+      });
+    });
+
+} else {
+  // ---- stdio 模式（本地 IDE 用）----
+  // Parse Content-Length framed messages from stdin
+  process.stdin.on('data', (chunk) => {
+    buffer += chunk.toString();
+    while (true) {
+      const headerEnd = buffer.indexOf('\r\n\r\n');
+      if (headerEnd === -1) break;
+      const header = buffer.slice(0, headerEnd);
+      const match = header.match(/Content-Length:\s*(\d+)/i);
+      if (!match) { buffer = buffer.slice(headerEnd + 4); continue; }
+      const len = parseInt(match[1], 10);
+      const bodyStart = headerEnd + 4;
+      if (buffer.length < bodyStart + len) break;
+      const body = buffer.slice(bodyStart, bodyStart + len);
+      buffer = buffer.slice(bodyStart + len);
+      handleMessage(body);
+    }
+  });
+
+  bootstrap()
+    .then(() => {
+      process.stderr.write('[MCP] Community Platform MCP server ready (stdio)\n');
+    })
+    .catch((err) => {
+      process.stderr.write(`[MCP] Bootstrap warning: ${err.message} - server will start but tools may fail\n`);
+    });
+}
