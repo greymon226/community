@@ -14,7 +14,7 @@ const { canModerateCategory } = require('../middlewares/auth');
 // GET /posts/:postId/comments
 async function listByPost(req, res) {
   const list = await Comment.findAll({
-    where: { postId: req.params.postId, status: { [Op.ne]: 'deleted' } },
+    where: { postId: req.params.postId, status: 'active' },
     include: [
       { model: User, as: 'author', attributes: ['id', 'nickname', 'name', 'avatar'] },
       {
@@ -104,9 +104,11 @@ async function remove(req, res) {
   const isOwner = c.authorId === req.user.id;
   const isMod = post && canModerateCategory(req.user, post.categoryId);
   if (!isOwner && !isMod) return fail(res, '无权删除', 403, 403);
+  const wasActive = c.status === 'active';
   c.status = 'deleted';
   await c.save();
-  if (post) await post.decrement('commentCount');
+  // 仅当评论原来是 active 时才减 commentCount（blocked 评论从未被计入）
+  if (post && wasActive) await post.decrement('commentCount');
   await writeAudit(req, { action: 'comment.delete', targetType: 'comment', targetId: c.id });
   return ok(res, null, '已删除');
 }
