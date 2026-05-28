@@ -156,12 +156,13 @@ function extractSnippet(text, tokens, maxLen = 600) {
 }
 
 function escapeLikeKeyword(value) {
-  return String(value || '').replace(/[\\%_]/g, (ch) => `\\${ch}`);
+  // 使用 $ 作为 ESCAPE 字符（兼容 MySQL + SQLite）
+  return String(value || '').replace(/[$%_]/g, (ch) => `$${ch}`);
 }
 
 function buildLikeSearchCondition(keyword, fields) {
   const pattern = `%${escapeLikeKeyword(keyword)}%`;
   const escapedPattern = Post.sequelize.escape(pattern);
-  const conditions = fields.map((field) => `\`Post\`.\`${field}\` LIKE ${escapedPattern} ESCAPE '\\'`);
+  const conditions = fields.map((field) => `\`Post\`.\`${field}\` LIKE ${escapedPattern} ESCAPE '$'`);
   return literal(`(${conditions.join(' OR ')})`);
 }
