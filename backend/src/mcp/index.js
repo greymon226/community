@@ -200,6 +200,81 @@ async function executeTool(name, args) {
   }
 }
 
+// ---- Format MCP Tool Response for human readability ----
+function formatToolOutput(name, result) {
+  if (!result) return '无返回结果';
+  if (result.error) return `❌ 错误: ${result.error}`;
+
+  switch (name) {
+    case 'search_posts': {
+      const { total, page, pageSize, items } = result;
+      if (!items || items.length === 0) {
+        return `🔍 社区搜索结果 (共 0 条)\n==================================================\n未找到匹配的帖子。`;
+      }
+      const totalPages = Math.ceil(total / pageSize);
+      let text = `🔍 社区搜索结果 (共 ${total} 条，当前第 ${page}/${totalPages} 页)\n`;
+      text += `==================================================\n\n`;
+      items.forEach((p, idx) => {
+        text += `${idx + 1}. 【${p.title}】 (ID: ${p.id})\n`;
+        text += `   分类: ${p.category} | 作者: ${p.author} | 发布时间: ${p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN', { hour12: false }) : '-'}\n`;
+        text += `   互动: 👍 ${p.likeCount} 点赞 | 💬 ${p.commentCount} 评论\n`;
+        text += `   标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
+        text += `   摘要: ${p.summary || '无'}\n`;
+        text += `   详情链接: http://124.222.8.86/posts/${p.id}\n`;
+        text += `--------------------------------------------------\n`;
+      });
+      return text.trim();
+    }
+    case 'get_post': {
+      const p = result;
+      let text = `📝 帖子详情: 【${p.title}】 (ID: ${p.id})\n`;
+      text += `==================================================\n`;
+      text += `分类: ${p.category} | 作者: ${p.author} (${p.department || '-'})\n`;
+      text += `发布: ${p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN', { hour12: false }) : '-'} | 更新: ${p.updatedAt ? new Date(p.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '-'}\n`;
+      text += `数据: 👍 ${p.likeCount} 点赞 | 💬 ${p.commentCount} 评论 | 👁️ ${p.viewCount} 阅读\n`;
+      text += `标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
+      text += `==================================================\n\n`;
+      text += `${p.content}\n`;
+      return text.trim();
+    }
+    case 'ask_community': {
+      const { question, answer, hasAnswer, citations } = result;
+      let text = `🤖 社区 AI 问答结果\n`;
+      text += `==================================================\n`;
+      text += `问题: ${question}\n`;
+      text += `回答:\n${answer}\n\n`;
+      if (citations && citations.length > 0) {
+        text += `引用文献/帖子:\n`;
+        citations.forEach((c) => {
+          text += `  - 【${c.title}】 (http://124.222.8.86/posts/${c.id})\n`;
+        });
+      } else {
+        text += `没有直接引用的站内帖子。\n`;
+      }
+      text += `==================================================`;
+      return text.trim();
+    }
+    case 'recommend_posts': {
+      if (!Array.isArray(result) || result.length === 0) {
+        return `👍 社区推荐帖子\n==================================================\n暂无推荐。`;
+      }
+      let text = `👍 社区推荐帖子 (共 ${result.length} 条)\n`;
+      text += `==================================================\n\n`;
+      result.forEach((p, idx) => {
+        text += `${idx + 1}. 【${p.title}】 (ID: ${p.id})\n`;
+        text += `   互动: 👍 ${p.likeCount} 点赞\n`;
+        text += `   标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
+        text += `   摘要: ${p.summary || '无'}\n`;
+        text += `   详情链接: http://124.222.8.86/posts/${p.id}\n`;
+        text += `--------------------------------------------------\n`;
+      });
+      return text.trim();
+    }
+    default:
+      return JSON.stringify(result, null, 2);
+  }
+}
+
 // ---- MCP Protocol Handler (stdio, jsonrpc 2.0) ----
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false });
@@ -250,7 +325,7 @@ async function handleMessage(raw) {
     try {
       const result = await executeTool(toolName, toolArgs);
       sendResponse(id, {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        content: [{ type: 'text', text: formatToolOutput(toolName, result) }],
       });
     } catch (e) {
       sendResponse(id, {
@@ -328,7 +403,7 @@ if (MODE === 'http') {
           try {
             const result = await executeTool(toolName, toolArgs);
             response = { jsonrpc: '2.0', id, result: {
-              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+              content: [{ type: 'text', text: formatToolOutput(toolName, result) }],
             }};
           } catch (e) {
             response = { jsonrpc: '2.0', id, result: {
