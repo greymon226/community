@@ -1,0 +1,4 @@
+file 'D:/YXB/code/community/submission/video/auto/dist-comprehensive/segments/0.mp4'
+file 'D:/YXB/code/community/submission/video/auto/dist-comprehensive/segments/playwright.mp4'
+file 'D:/YXB/code/community/submission/video/auto/dist-comprehensive/segments/12.mp4'
+file 'D:/YXB/code/community/submission/video/auto/dist-comprehensive/segments/13.mp4'

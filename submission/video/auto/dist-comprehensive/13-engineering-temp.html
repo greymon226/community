@@ -1,0 +1,1002 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Engineering Evidence</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+      background-color: #0b0e14;
+      color: #abb2bf;
+    }
+    
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      opacity: 0;
+      transition: opacity 0.4s ease-in-out;
+      display: flex;
+      flex-direction: column;
+      background-color: #0f141c;
+    }
+    
+    .slide.active {
+      opacity: 1;
+      z-index: 10;
+    }
+    
+    /* Header bar */
+    .header-bar {
+      height: 50px;
+      background-color: #181a1f;
+      border-bottom: 1px solid #282c34;
+      display: flex;
+      align-items: center;
+      padding: 0 25px;
+      justify-content: space-between;
+    }
+    
+    .header-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #abb2bf;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .badge {
+      background-color: #2c313c;
+      color: #98c379;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: 600;
+      border: 1px solid rgba(152, 195, 121, 0.2);
+    }
+    
+    .window-dots {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red { background-color: #ff5f56; }
+    .dot-yellow { background-color: #ffbd2e; }
+    .dot-green { background-color: #27c93f; }
+
+    /* IDE Slide */
+    .ide-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .ide-sidebar {
+      width: 290px;
+      background-color: #21252b;
+      border-right: 1px solid #181a1f;
+      padding: 20px;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+    }
+    
+    .sidebar-title {
+      font-weight: bold;
+      color: #5c6370;
+      text-transform: uppercase;
+      font-size: 11px;
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+    
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: #abb2bf;
+      font-weight: 600;
+    }
+    
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 15px;
+      margin-bottom: 6px;
+      color: #9da5b4;
+    }
+    
+    .file-item.active {
+      color: #e5c07b;
+      font-weight: bold;
+    }
+    
+    .ide-editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #282c34;
+      overflow: hidden;
+    }
+
+    .editor-tabs {
+      height: 40px;
+      background-color: #21252b;
+      display: flex;
+      border-bottom: 1px solid #181a1f;
+    }
+
+    .editor-tab {
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      background-color: #1e2227;
+      color: #5c6370;
+      border-right: 1px solid #181a1f;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .editor-tab.active {
+      background-color: #282c34;
+      color: #abb2bf;
+      border-top: 2px solid #e5c07b;
+    }
+
+    .ide-editor {
+      flex: 1;
+      padding: 25px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .code-scroll-box {
+      font-family: "Fira Code", Consolas, Monaco, monospace;
+      font-size: 17px;
+      line-height: 1.5;
+      white-space: pre;
+      position: absolute;
+      top: 25px;
+      left: 25px;
+      right: 25px;
+      transition: transform 9s linear;
+    }
+    
+    .kw { color: #c678dd; } /* keyword */
+    .fn { color: #61afef; } /* function */
+    .str { color: #98c379; } /* string */
+    .cmt { color: #5c6370; font-style: italic; } /* comment */
+    .num { color: #d19a66; } /* number */
+    .typ { color: #e5c07b; } /* type */
+
+    .ide-statusbar {
+      height: 22px;
+      background-color: #007acc;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 15px;
+      font-size: 12px;
+      font-family: -apple-system, sans-serif;
+    }
+
+    /* Terminal Slide */
+    .term-container {
+      flex: 1;
+      padding: 40px;
+      background-color: #1e1e24;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .term-window {
+      flex: 1;
+      background-color: #0c0c0f;
+      border: 1px solid #2c2c35;
+      border-radius: 8px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.55);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .term-header {
+      height: 40px;
+      background-color: #1e1e24;
+      border-bottom: 1px solid #2c2c35;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      position: relative;
+    }
+    
+    .term-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+      color: #8a8a95;
+      font-family: Consolas, monospace;
+      font-weight: 500;
+    }
+    
+    .term-body {
+      height: 720px; /* Force scrollable container height to bypass flex layout scrolling limits and fit perfectly on screen */
+      padding: 25px;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 17px;
+      line-height: 1.45;
+      color: #cccccc;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    
+    .prompt {
+      color: #47a0ff;
+    }
+    .check {
+      color: #00e676;
+      font-weight: bold;
+    }
+    .info {
+      color: #00b0ff;
+    }
+    .warning-text {
+      color: #ffd740;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Slide 1: IDE / Spec, Design, Tasks & PBT Code -->
+  <div id="slide1" class="slide active">
+    <div class="header-bar">
+      <div class="header-title">
+        <span class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </span>
+        <span>community-backend [Workspace] — Visual Studio Code</span>
+      </div>
+      <div class="badge" id="ideStageBadge">EARS Requirements</div>
+    </div>
+    <div class="ide-container">
+      <div class="ide-sidebar">
+        <div class="sidebar-title">Workspace Explorer</div>
+        <div class="folder-item">📂 .kiro</div>
+        <div class="folder-item" style="padding-left: 10px;">📂 specs</div>
+        <div class="folder-item" style="padding-left: 20px;">📂 tech-community-platform</div>
+        <div id="sidebarSpec" class="file-item active" style="padding-left: 30px;">📄 requirements.md</div>
+        <div id="sidebarDesign" class="file-item" style="padding-left: 30px;">📄 design.md</div>
+        <div id="sidebarTasks" class="file-item" style="padding-left: 30px;">📄 tasks.md</div>
+        <div class="folder-item">📂 backend</div>
+        <div class="folder-item" style="padding-left: 10px;">📂 tests</div>
+        <div class="folder-item" style="padding-left: 20px;">📂 property</div>
+        <div id="sidebarCode" class="file-item" style="padding-left: 30px;">📄 P30-ai-degradation.test.js</div>
+      </div>
+      <div class="ide-editor-area">
+        <div class="editor-tabs">
+          <div id="tabSpec" class="editor-tab active">requirements.md</div>
+          <div id="tabDesign" class="editor-tab">design.md</div>
+          <div id="tabTasks" class="editor-tab">tasks.md</div>
+          <div id="tabCode" class="editor-tab">P30-ai-degradation.test.js</div>
+        </div>
+        <div class="ide-editor">
+          <!-- Requirements document viewport -->
+          <div id="specScroll" class="code-scroll-box" style="display: flex; gap: 20px;">
+            <div class="line-numbers" style="color: #4b5263; text-align: right; user-select: none; width: 30px;">
+              1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18<br>19<br>20<br>21<br>22<br>23<br>24<br>25<br>26<br>27<br>28<br>29<br>30<br>31<br>32<br>33<br>34<br>35<br>36<br>37<br>38<br>39<br>40<br>41<br>42<br>43<br>44<br>45<br>46<br>47<br>48<br>49<br>50<br>51<br>52<br>53<br>54<br>55<br>56<br>57<br>58<br>59<br>60<br>61<br>62<br>63<br>64<br>65<br>66<br>67<br>68<br>69<br>70<br>71<br>72<br>73<br>74<br>75<br>76<br>77<br>78<br>79<br>80
+            </div>
+            <div class="code-lines"># Requirements Document
+
+## Introduction
+
+企业级技术交流分享社区（以下简称 **Community_Platform**）是面向企业内部员工的技术内容协作平台。平台以"看 / 写 / 问 / 管"为主线，提供 CAS 单点登录、多级板块、富文本帖子与评论、点赞收藏分享、全文搜索与排序、内容审核（敏感词 + AI）、举报、置顶 / 加精、消息通知、AI 智能推荐 / 解读 / 站内 RAG 问答 / 写作助手、以及管理后台。本文档基于已实现代码反推完整需求，作为后续迭代与验收的基线。
+
+后端为 Node.js + Express + Sequelize（MySQL 8）+ Redis + JWT；前端为 React 18 + Vite + Ant Design 5 + Zustand + React Router v6；AI 通过 DeepSeek（OpenAI 兼容 `/v1/chat/completions`）接入，未配置或调用失败时降级到本地规则。
+
+## Glossary
+
+- **Community_Platform**：完整社区系统，含 Web 前端、后端 API、数据库、缓存与 AI 调用层
+- **Auth_Service**：负责登录、CAS 回调、JWT 颁发与校验的后端模块
+- **CAS_Service**：对接企业 CAS 单点登录的服务模块；`CAS_SERVER_URL` 未配置时进入 Mock 模式
+- **Post_Service**：帖子创建 / 编辑 / 删除 / 列表 / 详情 / 状态管理模块
+- **Comment_Service**：评论及引用回复管理模块
+- **Interaction_Service**：点赞、收藏、分享相关的处理模块
+- **Search_Service**：基于 Sequelize 的全文搜索 / 排序 / 筛选模块，提供 `searchPosts` 与 `searchForRAG`
+- **Moderation_Service**：敏感词加载与策略执行模块（mask / block / review）
+- **AI_Service**：DeepSeek 客户端 + 本地规则降级模块，承担审核 / 推荐 / 解读 / 问答 / 写作助手
+- **AI_Audit**：发帖 / 编辑 / 评论时的内容审核子流程，输出 `pass | review | blocked`
+- **AI_Explain**：帖子详情页的 AI 解读子流程，输出 summary / keyPoints / suggestions / questions
+- **AI_Ask**：站内 RAG 问答子流程，含普通接口与 SSE 流式接口
+- **AI_Assist**：写作助手子流程，提供 title / summary / explainCode 三种 kind
+- **Notification_Service**：站内消息生成、查询与已读处理模块
+- **Report_Service**：用户举报与管理员处理模块
+- **Admin_Console**：管理后台前端 + 对应 `/api/admin/*` 接口
+- **Audit_Log**：管理类敏感操作的留痕（`AuditLog` 模型 + `writeAudit` 中间件）
+- **Setting_Service**：系统设置读写与缓存模块（含 AI 各开关与配额）
+- **Cache_Service**：Redis 优先、未配置时降级到内存的缓存模块
+- **JWT_Token**：登录后颁发的 Bearer 令牌，默认有效期 7 天
+- **Role**：用户角色，取值 `user`（普通用户） / `moderator`（版主） / `admin`（超级管理员）
+- **Post_Status**：帖子状态，取值 `draft` / `published` / `blocked` / `deleted`
+- **AI_Audit_Status**：AI 审核结果，取值 `pass` / `review` / `blocked` / `skipped`
+- **Quota_Daily_Limit**：单用户每日 AI 配额，按 `ai:&lt;feature&gt;:quota:&lt;userId&gt;:&lt;YYYY-MM-DD&gt;` 计数
+- **Sensitive_Strategy**：敏感词策略，取值 `mask` / `block` / `review`
+
+错误码约定：
+
+- `4001`：命中敏感词 block 策略
+- `4002`：AI 审核 blocked
+- `4003`：相关 AI 功能开关关闭
+- `4004`：当日 AI 配额耗尽
+- `5001`：AI 服务调用失败（含降级失败）
+
+## Requirements
+
+### Requirement 1: 用户认证与单点登录
+
+**User Story:** 作为企业员工，我希望使用工号通过 CAS 登录社区，本地开发时可使用账号密码 Mock 登录，登录后凭 JWT 访问后续接口，从而无需重复输入企业凭据。
+
+#### Acceptance Criteria
+
+1. WHEN 前端请求 `GET /api/auth/cas/login-url`，THE Auth_Service SHALL 返回 HTTP 200 与 `{ mock: boolean, url: string }`，其中 Mock 模式下 `mock=true` 且 `url` 为本地登录页地址，CAS 模式下 `mock=false` 且 `url` 为外部 CAS 登录入口
+2. WHERE `CAS_SERVER_URL` 未配置，THE CAS_Service SHALL 以 Mock 模式运行，并支持通过 `POST /api/auth/login` 使用 `empNo + password` 登录
+3. WHEN 收到 `POST /api/auth/login` 且 `empNo` 或 `password` 字段缺失、非字符串、或 trim 后长度为 0，THE Auth_Service SHALL 返回 HTTP 400 与提示"工号与密码不能为空"，且不进入密码比对流程
+4. IF `POST /api/auth/login` 提交的工号不存在、对应用户被禁用、或密码错误，THEN THE Auth_Service SHALL 统一返回 HTTP 401 与提示"工号或密码错误"，避免账号枚举
+5. WHEN `POST /api/auth/login` 校验通过，THE Auth_Service SHALL 更新用户 `lastLoginAt`、签发有效期 7 天的 JWT_Token 并返回 `{ token, user }`，其中 `user` 仅含 `{ id, empNo, name, nickname, email, department, avatar, bio, techTags, role, emailNotify }` 且不含 `passwordHash`
+6. WHEN `GET /api/auth/cas/callback` 收到合法 `ticket`，THE CAS_Service SHALL 校验 ticket、按 profile 同步本地用户的 `empNo / name / department / email`，并由 Auth_Service 签发有效期 7 天的 JWT_Token
+7. IF `GET /api/auth/cas/callback` 缺少 `ticket` 或 `ticket` 为空字符串，THEN THE Auth_Service SHALL 返回 HTTP 400 与提示"缺少 ticket"
+8. IF `GET /api/auth/cas/callback` 的 ticket 校验失败、超时、或 profile 获取失败，THEN THE Auth_Service SHALL 返回 HTTP 401 与提示"CAS 登录失败"，且不创建本地用户、不签发 JWT_Token
+9. THE Auth_Service SHALL 使用 `Authorization: Bearer &lt;token&gt;` 头识别用户身份
+10. IF 受保护接口请求未携带 `Authorization` 头、头格式非 `Bearer xxx`、token 解析失败、或 token 已过期，THEN THE Auth_Service SHALL 返回 HTTP 401 与业务码 401，提示"登录态无效"
+11. IF JWT_Token 解析得到的用户不存在或 `status` 不为 `active`，THEN THE Auth_Service SHALL 返回 HTTP 401 与提示"用户不可用"
+12. WHEN `GET /api/auth/me` 由已登录用户请求，THE Auth_Service SHALL 返回 HTTP 200 与当前用户 `{ id, empNo, name, nickname, email, department, avatar, bio, techTags, role, emailNotify }`，且不含 `passwordHash`
+13. WHEN `POST /api/auth/logout` 被调用，THE Auth_Service SHALL 返回 HTTP 200 与业务码 0，由前端清理本地 JWT_Token
+
+### Requirement 2: 用户角色与权限
+
+**User Story:** 作为平台运营方，我希望按角色控制功能权限，让普通用户专注创作，版主管理指定板块，管理员拥有全局权限。
+
+#### Acceptance Criteria
+
+1. THE Community_Platform SHALL 维护三种 Role：`user`、`moderator`、`admin`，并将新创建用户的默认 Role 设置为 `user`
+2. WHERE Role=`user` 且用户 `status = 'active'`，THE Community_Platform SHALL 允许其进行内容创作（发帖 / 评论）与互动（点赞 / 收藏 / 分享 / 举报）
+3. WHERE Role=`moderator` 且用户 `status = 'active'`，THE Community_Platform SHALL 允许其行使 Role=`user` 的全部权限，并对自身 `moderatorCategoryIds` 列表中的板块执行置顶 / 加精 / 屏蔽 / 删除评论
+4. WHEN Role=`moderator` 请求对帖子或评论执行管理动作（置顶 / 加精 / 屏蔽 / 删除评论），THE Auth_Service SHALL 在执行前始终调用 `canModerateCategory(user, categoryId)` 校验；若该 `categoryId` 不在其 `moderatorCategoryIds` 中，THE Auth_Service SHALL 返回 HTTP 403 与提示"无权操作"，不得因任何分支跳过该校验
+5. WHERE Role=`admin` 且用户 `status = 'active'`，THE Community_Platform SHALL 允许其访问所有 `/api/admin/*` 接口，并在所有板块上拥有 Role=`moderator` 的全部权限
+6. IF 用户携带有效 JWT_Token 访问 `/api/admin/*` 接口且解析得到的 Role 不在该接口 `requireRole` 允许列表内，THEN THE Auth_Service SHALL 返回 HTTP 403 与业务码 403
+7. WHEN 管理员通过 `PUT /api/admin/users/:id/role` 修改角色 / 版主板块 / 状态，THE Admin_Console SHALL 仅接受 `role ∈ {user, moderator, admin}`、`status ∈ {active, disabled}`、`moderatorCategoryIds` 为整数数组（≤50 项且每项对应数据库中已存在的 Category），校验通过后持久化变更并写入 Audit_Log
+8. IF `PUT /api/admin/users/:id/role` 提交的 `role`、`status` 或 `moderatorCategoryIds` 任一字段不满足上述校验，THEN THE Admin_Console SHALL 返回 HTTP 400 与对应错误提示，且不持久化任何变更、不写 Audit_Log</div>
+          </div>
+
+          <!-- Design document viewport -->
+          <div id="designScroll" class="code-scroll-box" style="display: none; gap: 20px;">
+            <div class="line-numbers" style="color: #4b5263; text-align: right; user-select: none; width: 30px;">
+              1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18<br>19<br>20<br>21<br>22<br>23<br>24<br>25<br>26<br>27<br>28<br>29<br>30<br>31<br>32<br>33<br>34<br>35<br>36<br>37<br>38<br>39<br>40<br>41<br>42<br>43<br>44<br>45<br>46<br>47<br>48<br>49<br>50<br>51<br>52<br>53<br>54<br>55<br>56<br>57<br>58<br>59<br>60<br>61<br>62<br>63<br>64<br>65<br>66<br>67<br>68<br>69<br>70<br>71<br>72<br>73<br>74<br>75<br>76<br>77<br>78<br>79<br>80
+            </div>
+            <div class="code-lines"># Design Document
+
+## Overview
+
+**Community_Platform**（企业级技术交流分享社区）是一个面向企业内部员工的技术内容协作平台。本设计文档基于 [requirements.md](./requirements.md) 中的 27 项需求，对系统的架构、模块划分、数据模型、对外协议、关键算法、错误处理与测试策略进行系统化定义，与 `backend/src` 与 `frontend/src` 中的既有实现对齐，作为后续迭代与验收的工程基线。
+
+设计的核心主线是 **"看 / 写 / 问 / 管"**：
+
+- **看**：分类树 + 帖子列表 + 全文搜索 + 排序筛选 + 帖子详情。
+- **写**：富文本编辑器 + 草稿/发布 + 标签 + 文件上传 + AI 写作助手。
+- **问**：站内 RAG 问答（普通 + SSE 流式）+ 帖子 AI 解读 + 智能推荐。
+- **管**：举报 / 置顶 / 加精 / 屏蔽 / 敏感词 / 系统设置 + 操作审计。
+
+设计的核心非功能性目标是：
+
+- **稳定降级**：Redis 不可用时降级到内存缓存；AI 不可用时审核降级到本地规则、`explain/ask/assist` 抛 `5001`；CAS 未配置时进入 Mock 模式。
+- **结构化错误**：通过 `{ code, message, data }` 与一组业务码（`4001` / `4002` / `4003` / `4004` / `5001`）让前端能够分支处理 AI 与审核相关的失败。
+- **可审计**：所有管理类敏感操作必须落 `AuditLog`。
+- **一致性优先于性能**：强一致性的计数（`likeCount` / `commentCount` / `favoriteCount`）通过事务内 `increment / decrement` 维护，搜索与推荐场景允许最终一致。
+
+## Architecture
+
+### 系统拓扑
+
+```mermaid
+flowchart LR
+    subgraph Client["浏览器（PC / H5）"]
+      FE[React 18 + Vite + AntD]
+    end
+
+    subgraph EdgeAndApp["Node.js 应用层"]
+      MW[middleware&lt;br/&gt;helmet · cors · rate-limit · auth · audit · error]
+      RT[Express Router&lt;br/&gt;/api/*]
+      CTRL[Controllers]
+      SVC[Services&lt;br/&gt;moderation · ai · search · cache · setting · notification · cas]
+      ORM[Sequelize ORM]
+    end
+
+    subgraph Storage["数据存储 &amp; 缓存"]
+      MySQL[(MySQL 8)]
+      Redis[(Redis 7)]
+      Mem[(In-Memory Fallback)]
+      FS[(uploads/ 文件系统)]
+    end
+
+    subgraph External["外部依赖"]
+      CAS[企业 CAS Server]
+      LLM[DeepSeek&lt;br/&gt;OpenAI 兼容 API]
+    end
+
+    FE -- "HTTPS&lt;br/&gt;{code,message,data}" --&gt; MW --&gt; RT --&gt; CTRL --&gt; SVC --&gt; ORM --&gt; MySQL
+    SVC --&gt; Redis
+    SVC -. fallback .-&gt; Mem
+    CTRL --&gt; FS
+    SVC -- "ticket / profile" --&gt; CAS
+    SVC -- "POST /v1/chat/completions" --&gt; LLM
+    FE -- "EventSource / fetch SSE" --&gt; RT
+```
+
+### 关键运行时模式
+
+- **请求生命周期**：`helmet → cors → rate-limit → express.json(5MB) → router → authRequired/authOptional → controller → service → ORM → response.js → error middleware`。
+- **认证模式**：JWT（`Authorization: Bearer &lt;token&gt;`），有效期 7 天；CAS 模式与 Mock 密码登录共享相同的 token 颁发函数。
+- **多租户隔离**：单一企业部署，无租户字段；权限由 `Role` + `moderatorCategoryIds` 组合判定。
+- **AI 调用模式**：所有 AI 入口共用 `auditContent` / `callLLMJSON` / `streamAnswer` 三个入口；统一通过 `AbortController + AI_TIMEOUT_MS` 控制超时；非流式使用 `response_format = json_object`；流式使用 `stream = true`，并在服务端解析 `data: &lt;json&gt;` 行。
+- **降级策略**：
+  - Redis → 内存缓存（透明，调用方无感知）。
+  - LLM 审核 → 本地 `RISK_KEYWORDS`（auditContent 内嵌兜底）。
+  - LLM `explain/ask/assist` → 不降级，直接抛错由控制器映射到 `5001`，业务允许失败。
+  - CAS → Mock（用 `empNo + password` 走密码比对）。
+
+### 部署形态
+
+- **开发态**：`docker compose up -d` 启动 MySQL（host port 3316）+ Redis（host port 6380）；`npm run dev` 启动后端（4000）；`npm run dev` 启动前端（5173）；前端通过 Vite 代理或环境变量配置 API 基址。
+- **生产态**：MySQL 与 Redis 由企业基础设施提供；后端单进程部署即可水平扩容（`Cache_Service` 共享 Redis 后无状态）；上传文件位于 `backend/uploads/`，生产建议挂载共享卷或对接对象存储。
+
+## Components and Interfaces
+
+下列模块对应需求文档 Glossary 中的同名术语，括号内为代码位置。
+</div>
+          </div>
+
+          <!-- Tasks document viewport -->
+          <div id="tasksScroll" class="code-scroll-box" style="display: none; gap: 20px;">
+            <div class="line-numbers" style="color: #4b5263; text-align: right; user-select: none; width: 30px;">
+              1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18<br>19<br>20<br>21<br>22<br>23<br>24<br>25<br>26<br>27<br>28<br>29<br>30<br>31<br>32<br>33<br>34<br>35<br>36<br>37<br>38<br>39<br>40<br>41<br>42<br>43<br>44<br>45<br>46<br>47<br>48<br>49<br>50<br>51<br>52<br>53<br>54<br>55<br>56<br>57<br>58<br>59<br>60<br>61<br>62<br>63<br>64<br>65<br>66<br>67<br>68<br>69<br>70<br>71<br>72<br>73<br>74<br>75<br>76<br>77<br>78<br>79<br>80
+            </div>
+            <div class="code-lines"># Implementation Plan: Community_Platform 技术交流分享社区
+
+## Overview
+
+本计划基于 [requirements.md](./requirements.md)（27 项需求）与 [design.md](./design.md)（36 条 Correctness Properties）拆解实现路径。技术栈为 Node.js + Express + Sequelize + Redis + JWT + React 18，与既有代码（`backend/src`、`frontend/src`）对齐。
+
+由于需求与设计是从既有代码反推得到，实现路径采用"分层对齐 + 测试补全"模式：
+
+- 每个模块按 `功能对齐 → 属性测试 → 单元/集成测试` 展开
+- 必做任务实现/对齐核心业务逻辑、错误码、审计落点
+- 可选任务（带 `*` 后缀）覆盖 36 条 Correctness Properties 与单元/集成回归
+- 属性测试使用 `fast-check`（每条 ≥ 100 次迭代），位于 `backend/tests/property/`
+
+每个属性测试文件命名为 `PXX-&lt;short-name&gt;.test.js`，顶部注释必须引用所对应的 Property 编号与设计文档章节。
+
+## Tasks
+
+- [x] 1. 测试基础设施
+  - [x] 1.1 安装属性测试依赖与脚本
+    - 在 `backend/package.json` devDependencies 添加 `fast-check`、`ioredis-mock`、`sqlite3`
+    - 添加脚本：`test:unit`（`node --test tests/unit/**/*.test.js`）、`test:property`（`node --test tests/property/**/*.test.js`）、`test:e2e`（保留既有 `tests/run-all.js`）
+    - 创建目录 `backend/tests/unit/`、`backend/tests/property/` 与各自 README 命名规范
+    - _Requirements: 27.1_
+
+  - [x] 1.2 实现属性测试公共脚手架
+    - 创建 `backend/tests/property/_setup.js`：sqlite 内存 Sequelize 实例、表截断 helper、AI mock 服务器注入、`Cache_Service` Redis-mock 切换
+    - 创建 `backend/tests/property/_arbitraries.js`：合法用户、合法帖子、富文本、敏感文本、SSE 帧序列等常用 fast-check 生成器
+    - _Requirements: 27.1_
+
+  - [x]* 1.3 编写纯函数单元测试
+    - 覆盖 `cleanPlainText` / `cleanRichText`（≥ 20 条 XSS 注入向量）、`searchService.tokenize / extractSnippet` 中英文分词、`aiService.safeParseJSON` markdown 包裹容错
+    - _Requirements: 5.2, 5.3, 8.5_
+
+- [x] 2. 统一响应包络与全局错误处理
+  - [x] 2.1 对齐 `utils/response.js` 与 `middlewares/error.js`
+    - 校验响应体形如 `{ code, message, data }`；成功 `code = 0`
+    - 已知业务错误保留 `code/status`；未知错误返回 500、不暴露堆栈（仅 `NODE_ENV !== 'production'` 时附 `data.stack`）
+    - 请求体过大兜底为 `{ code: 1, message: '请求体过大' }`
+    - _Requirements: 23.9, 27.4_
+
+  - [x] 2.2 对齐安全头、CORS 与速率限制
+    - `helmet()` 启用 nosniff/HSTS/frameguard 等
+    - `cors({ origin: process.env.CORS_ORIGIN || true, credentials: true })`
+    - `express-rate-limit`：默认每 IP 每分钟 600 次，超出 429
+    - `express.json({ limit: '5mb' })`
+    - _Requirements: 23.6, 23.8, 23.9_
+
+  - [x]* 2.3 属性测试 P36：统一响应包络
+    - **Property 36: 统一响应包络**
+    - **Validates: Requirements 27.4**
+
+  - [ ]* 2.4 属性测试 P05：入参校验先于副作用
+    - **Property 5: 入参校验必须先于副作用**
+    - **Validates: Requirements 1.3, 2.7, 2.8, 2.9, 3.3, 3.4, 3.5, 4.3, 4.4, 5.1, 5.7, 5.8, 6.1, 6.2, 13.1, 21.3, 21.8**
+
+- [x] 3. Auth_Service 与权限助手
+  - [x] 3.1 对齐 JWT 鉴权中间件
+    - `authRequired`：缺失 / 非 Bearer / 解析失败 / 用户不存在 / 用户不可用 → 401 + `code = 401`
+    - `authOptional`：解析失败放行并将 `req.user = null`
+    - `requireRole(...allowed)`：白名单不通过 → 403 + `code = 403`
+    - _Requirements: 1.9, 1.10, 1.11, 2.6, 23.5_
+
+  - [x] 3.2 对齐密码登录与 CAS 回调
+    - `POST /api/auth/login` 入参校验、反枚举一致 401、签发 7 天 JWT、返回 user 不含 `passwordHash`
+    - `GET /api/auth/cas/callback` ticket 校验、profile 同步本地用户、缺 ticket → 400、校验失败 → 401
+    - `GET /api/auth/cas/login-url` 在 Mock 与真实模式分别返回 `{ mock, url }`
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8_
+
+  - [x] 3.3 对齐 `GET /api/auth/me` 与 `POST /api/auth/logout`
+    - `me` 返回去敏 user；`logout` 返回成功响应供前端清 token
+    - _Requirements: 1.12, 1.13_
+
+  - [x] 3.4 对齐 `canModerateCategory(user, categoryId)` 助手
+    - admin 永真；moderator 仅 `moderatorCategoryIds.includes(categoryId)`；其他返回 false
+    - 在所有版主/管理员动作 controller 入口强制调用，禁止任何分支跳过
+    - _Requirements: 2.2, 2.3, 2.4, 2.5, 4.7, 5.8, 8.11, 14.6_
+
+  - [ ]* 3.5 属性测试 P02：受保护接口 401 一致性
+    - **Property 2: 受保护接口对所有伪造 / 过期 token 一致返回 401**
+    - **Validates: Requirements 1.9, 1.10, 1.11, 23.5**</div>
+          </div>
+          
+          <!-- Property test code viewport -->
+          <div id="codeScroll" class="code-scroll-box" style="display: none; gap: 20px;">
+            <div class="line-numbers" style="color: #4b5263; text-align: right; user-select: none; width: 30px;">
+              1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18<br>19<br>20<br>21<br>22<br>23<br>24<br>25<br>26<br>27<br>28<br>29<br>30<br>31<br>32<br>33<br>34<br>35<br>36<br>37<br>38<br>39<br>40<br>41<br>42<br>43<br>44<br>45<br>46<br>47<br>48<br>49<br>50<br>51<br>52<br>53<br>54<br>55<br>56<br>57<br>58<br>59<br>60<br>61<br>62<br>63<br>64<br>65<br>66<br>67<br>68<br>69<br>70<br>71<br>72<br>73<br>74<br>75<br>76<br>77<br>78<br>79<br>80<br>81<br>82<br>83<br>84<br>85<br>86<br>87<br>88<br>89<br>90<br>91<br>92<br>93<br>94<br>95<br>96<br>97<br>98<br>99<br>100<br>101<br>102<br>103<br>104<br>105<br>106<br>107<br>108<br>109<br>110<br>111<br>112<br>113<br>114<br>115<br>116<br>117<br>118<br>119<br>120<br>121<br>122<br>123<br>124<br>125<br>126<br>127<br>128<br>129<br>130<br>131<br>132<br>133<br>134<br>135<br>136<br>137<br>138<br>139<br>140<br>141<br>142<br>143<br>144<br>145<br>146<br>147<br>148<br>149<br>150<br>151<br>152<br>153<br>154<br>155<br>156<br>157<br>158<br>159<br>160<br>161<br>162<br>163<br>164<br>165<br>166<br>167<br>168<br>169<br>170<br>171<br>172<br>173<br>174<br>175<br>176<br>177<br>178<br>179<br>180<br>181<br>182<br>183<br>184<br>185<br>186<br>187<br>188<br>189<br>190<br>191<br>192<br>193<br>194<br>195<br>196<br>197<br>198<br>199<br>200<br>201<br>202<br>203<br>204<br>205<br>206<br>207<br>208<br>209<br>210<br>211<br>212<br>213<br>214<br>215<br>216<br>217<br>218<br>219<br>220<br>221<br>222<br>223<br>224<br>225
+            </div>
+            <div class="code-lines">'use strict';
+
+// Property 30: AI 失败的稳定降级
+// Validates: Requirements 12.9, 12.10, 25.3, 25.4, 19.7
+//
+// 不变量：对任意 AI 上游失败模式（非 2xx 状态、非 JSON body、缺 status 字段、
+// 超时），`aiService.auditContent({title, content})` 必须：
+//   1) 不抛异常（绝不进入 unhandled rejection / uncaught exception 路径）；
+//   2) 返回一个形如 { status, reason } 的对象；
+//   3) status ∈ { 'pass', 'review', 'blocked' }；
+//   4) reason 是字符串（不泄漏堆栈、密钥、上游 URL）。
+//
+// 实现策略：
+//   - installAiMock 启动一个本地 mock HTTP server，并把 config.ai.* 切换到
+//     mock baseUrl + 假 apiKey，让 auditContent 走 LLM 调用路径（再降级
+//     到本地 RISK_KEYWORDS）。
+//   - 通过 setAiHandler 在每次迭代切换上游响应：
+//       * { status: 500 } 不带 body
+//       * 200 + 非 JSON body
+//       * 200 + JSON body 缺 status 字段
+//       * 永不结束的 Promise（让客户端 AbortController 触发超时）
+//     另外加入一个无效随机 status 字符串，验证模型“非合法 status”兜底。
+//   - 设置 process.env.AI_TIMEOUT_MS = '500'（在 test.before 早期设置），
+//     然后在 setAiHandler 注入超时变体之前临时把 config.ai.timeoutMs 调小，
+//     让超时迭代总耗时受控（每条 ≤ 1s）。
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fc = require('fast-check');
+
+// IMPORTANT: must be set before _setup loads config.
+process.env.AI_TIMEOUT_MS = '500';
+
+const setup = require('./_setup');
+const { closeDb, config, installAiMock, setAiHandler, restoreAiMock } = setup;
+
+const aiService = require('../../src/services/aiService');
+
+// ---------- harness ----------
+
+test.before(async () =&gt; {
+  // Force the LLM path: deepseek provider + apiKey set. installAiMock will
+  // override baseUrl to point at the in-process server.
+  await installAiMock();
+  // Cap the per-iteration timeout so timeout-injection iterations complete fast.
+  config.ai.timeoutMs = 500;
+});
+
+test.after(async () =&gt; {
+  await restoreAiMock();
+  await closeDb();
+});
+
+// ---------- failure handler factories ----------
+
+function handler500() {
+  return () =&gt; ({ status: 500, body: '' });
+}
+
+function handlerNonJsonBody() {
+  // 200 + Content-Type: application/json header but non-JSON body. The mock
+  // server's `body` branch returns text/plain by default; that's fine because
+  // aiService treats a !ok or non-JSON content as failure → fallback.
+  return () =&gt; ({
+    status: 200,
+    body: 'this is not json {{{',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function handlerJsonMissingStatus() {
+  // 200 + JSON body that lacks a `status` field. aiService.safeParseJSON
+  // will succeed but downstream `parsed.status` is undefined; auditWithLLM
+  // currently coerces an unknown status to 'review'. To validate the
+  // "stable degrade" property in a stricter way (any failure path must yield
+  // a well-formed object), we still expect a valid envelope.
+  return () =&gt; ({
+    status: 200,
+    json: {
+      id: 'mock',
+      object: 'chat.completion',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            // raw model content is JSON but lacks a status key.
+            content: JSON.stringify({ reason: 'no status here', categories: [] }),
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    },
+  });
+}
+
+function handlerInvalidJsonContent() {
+  // 200 + chat completion shape, but the assistant's `content` is NOT JSON.
+  // safeParseJSON will return null → auditWithLLM throws → fallback path.
+  return () =&gt; ({
+    status: 200,
+    json: {
+      id: 'mock',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'plain text without any json braces' },
+          finish_reason: 'stop',
+        },
+      ],
+    },
+  });
+}
+
+function handlerInvalidStatusValue() {
+  // Like a normal completion but `status` is a garbage string.
+  return () =&gt; ({
+    status: 200,
+    json: {
+      id: 'mock',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: JSON.stringify({ status: 'garbage-value', reason: 'x', categories: [] }),
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    },
+  });
+}
+
+function handlerTimeout() {
+  // Returns a never-resolving promise; client AbortController fires after
+  // AI_TIMEOUT_MS and aiService catches the AbortError → fallback.
+  return () =&gt; new Promise(() =&gt; {});
+}
+
+const FAILURE_HANDLERS = [
+  { name: '500-empty', factory: handler500 },
+  { name: 'non-json-body', factory: handlerNonJsonBody },
+  { name: 'json-missing-status', factory: handlerJsonMissingStatus },
+  { name: 'invalid-json-content', factory: handlerInvalidJsonContent },
+  { name: 'invalid-status-value', factory: handlerInvalidStatusValue },
+  { name: 'timeout', factory: handlerTimeout },
+];
+
+// ---------- arbitraries ----------
+
+const titleArb = fc
+  .stringMatching(/^[A-Za-z0-9 ]{6,40}$/)
+  .map((s) =&gt; s.trim())
+  .filter((s) =&gt; s.length &gt;= 6);
+
+const contentArb = fc
+  .stringMatching(/^[A-Za-z0-9 .,]{10,200}$/)
+  .map((s) =&gt; s.trim())
+  .filter((s) =&gt; s.length &gt;= 10);
+
+const failureHandlerArb = fc
+  .integer({ min: 0, max: FAILURE_HANDLERS.length - 1 })
+  .map((idx) =&gt; FAILURE_HANDLERS[idx]);
+
+const iterationArb = fc.record({
+  title: titleArb,
+  content: contentArb,
+  failure: failureHandlerArb,
+});
+
+const VALID_STATUSES = new Set(['pass', 'review', 'blocked']);
+
+// ---------- the property ----------
+
+test('P30: auditContent degrades to a well-formed envelope under any AI failure', async () =&gt; {
+  await fc.assert(
+    fc.asyncProperty(iterationArb, async ({ title, content, failure }) =&gt; {
+      setAiHandler(failure.factory());
+
+      let result;
+      let threw = null;
+      try {
+        result = await aiService.auditContent({ title, content });
+      } catch (e) {
+        threw = e;
+      }
+
+      assert.equal(
+        threw,
+        null,
+        `auditContent must NOT throw under failure mode '${failure.name}': ${threw &amp;&amp; threw.message}`
+      );
+      assert.notEqual(result, undefined, `result must not be undefined under '${failure.name}'`);
+      assert.notEqual(result, null, `result must not be null under '${failure.name}'`);
+      assert.equal(typeof result, 'object', `result must be an object under '${failure.name}'`);
+
+      assert.ok(
+        VALID_STATUSES.has(result.status),
+        `result.status must be one of {pass, review, blocked} under '${failure.name}', got ${JSON.stringify(result.status)}`
+      );
+      assert.equal(
+        typeof result.reason,
+        'string',
+        `result.reason must be a string under '${failure.name}', got ${typeof result.reason}`
+      );
+
+      // The "no leakage" half of R12.10 / R25.4: the reason field must not
+      // surface upstream URLs or fake API keys. We don't enforce a strict
+      // string match (the local-fallback path returns Chinese text), only
+      // that the leak markers are absent.
+      const reasonLower = result.reason.toLowerCase();
+      assert.ok(
+        !reasonLower.includes('test-mock-key'),
+        `reason must not leak the api key under '${failure.name}': ${result.reason}`
+      );
+      assert.ok(
+        !reasonLower.includes('127.0.0.1'),
+        `reason must not leak the upstream URL under '${failure.name}': ${result.reason}`
+      );
+    }),
+    { numRuns: 100 }
+  );
+});
+</div>
+          </div>
+        </div>
+        <div class="ide-statusbar">
+          <div style="display: flex; gap: 15px;">
+            <span>🟢 Ready</span>
+            <span>Git: master*</span>
+            <span>Problems: 0</span>
+          </div>
+          <div style="display: flex; gap: 15px;">
+            <span id="idePositionSpan">Ln 1, Col 1</span>
+            <span>Spaces: 2</span>
+            <span>UTF-8</span>
+            <span>LF</span>
+            <span id="ideLanguageSpan">Markdown</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 2: Terminal Execution -->
+  <div id="slide2" class="slide">
+    <div class="header-bar">
+      <div class="header-title">
+        <span class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </span>
+        <span>Local Terminal — PBT Test Run</span>
+      </div>
+      <div class="badge">Property Test Runner</div>
+    </div>
+    <div class="term-container">
+      <div class="term-window">
+        <div class="term-header">
+          <span class="window-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </span>
+          <div class="term-title">PowerShell — npm run test:property</div>
+        </div>
+        <div id="termBody" class="term-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const s1 = document.getElementById('slide1');
+    const s2 = document.getElementById('slide2');
+    
+    const tabSpec = document.getElementById('tabSpec');
+    const tabDesign = document.getElementById('tabDesign');
+    const tabTasks = document.getElementById('tabTasks');
+    const tabCode = document.getElementById('tabCode');
+
+    const sidebarSpec = document.getElementById('sidebarSpec');
+    const sidebarDesign = document.getElementById('sidebarDesign');
+    const sidebarTasks = document.getElementById('sidebarTasks');
+    const sidebarCode = document.getElementById('sidebarCode');
+    
+    const specScroll = document.getElementById('specScroll');
+    const designScroll = document.getElementById('designScroll');
+    const tasksScroll = document.getElementById('tasksScroll');
+    const codeScroll = document.getElementById('codeScroll');
+    
+    const ideStageBadge = document.getElementById('ideStageBadge');
+    const ideLanguageSpan = document.getElementById('ideLanguageSpan');
+    const idePositionSpan = document.getElementById('idePositionSpan');
+    
+    // --- Slide 1 Sequence ---
+    // Start Requirements scrolling
+    setTimeout(() => {
+      specScroll.style.transform = 'translateY(-350px)';
+    }, 100);
+    
+    // --- Slide 1 Sequence: Design Switch at 7s ---
+    setTimeout(() => {
+      tabSpec.classList.remove('active');
+      sidebarSpec.classList.remove('active');
+      specScroll.style.display = 'none';
+      
+      tabDesign.classList.add('active');
+      sidebarDesign.classList.add('active');
+      designScroll.style.display = 'flex';
+      
+      ideStageBadge.textContent = 'Correctness Properties';
+      ideLanguageSpan.textContent = 'Markdown';
+      idePositionSpan.textContent = 'Ln 20, Col 1';
+      
+      setTimeout(() => {
+        designScroll.style.transform = 'translateY(-300px)';
+      }, 100);
+    }, 7000);
+
+    // --- Slide 1 Sequence: Tasks Switch at 13s ---
+    setTimeout(() => {
+      tabDesign.classList.remove('active');
+      sidebarDesign.classList.remove('active');
+      designScroll.style.display = 'none';
+      
+      tabTasks.classList.add('active');
+      sidebarTasks.classList.add('active');
+      tasksScroll.style.display = 'flex';
+      
+      ideStageBadge.textContent = 'Implementation Tasks';
+      ideLanguageSpan.textContent = 'Markdown';
+      idePositionSpan.textContent = 'Ln 16, Col 1';
+      
+      setTimeout(() => {
+        tasksScroll.style.transform = 'translateY(-300px)';
+      }, 100);
+    }, 13000);
+    
+    // --- Slide 1 Sequence: Property Code Switch at 18s ---
+    setTimeout(() => {
+      tabTasks.classList.remove('active');
+      sidebarTasks.classList.remove('active');
+      tasksScroll.style.display = 'none';
+      
+      tabCode.classList.add('active');
+      sidebarCode.classList.add('active');
+      codeScroll.style.display = 'flex';
+      
+      ideStageBadge.textContent = 'Property Test Code';
+      ideLanguageSpan.textContent = 'JavaScript';
+      idePositionSpan.textContent = 'Ln 1, Col 1';
+      
+      setTimeout(() => {
+        codeScroll.style.transform = 'translateY(-300px)';
+      }, 100);
+    }, 18000);
+    
+    // --- Slide 2 Sequence (Terminal Swapped) at 26s ---
+    const realLogs = ["<span style=\"color: #5c6370;\">&gt; community-backend@1.0.0 test:property</span>","<span style=\"color: #5c6370;\">&gt; node tests/run-suite.js property</span>","[run-suite] property: discovered 29 test files","<span class=\"warning-text\">(sequelize) Warning: SQLite does not support TEXT with options. Plain `TEXT` will be used instead.</span>","<span class=\"warning-text\">&gt;&gt; Check: https://www.sqlite.org/datatype3.html</span>","<span class=\"check\">✔</span> P02.A: authRequired returns 401/code=401 for ANY invalid Authorization (998.629ms)","<span class=\"check\">✔</span> P02.A: authRequired returns 401/code=401 for ANY invalid Authorization (998.629ms)","<span class=\"check\">✔</span> P02.B: authRequired uniformly returns the same body shape across rejection categories (538.7193ms)","<span class=\"check\">✔</span> P02.C: authRequired rejects disabled-user tokens with 401 (803.745ms)","<span class=\"check\">✔</span> P02.D: authOptional silently passes through invalid tokens (no userId) (504.1848ms)","<span class=\"check\">✔</span> P02.E: a valid token for an active user grants access (sanity / non-enumeration) (19.0378ms)","<span class=\"check\">✔</span> P03.A: canModerateCategory truth table for active users (32.8275ms)","<span class=\"check\">✔</span> P03.B: canModerateCategory(null|undefined, *) === false (1.0777ms)","<span class=\"check\">✔</span> P03.C: canModerateCategory is deterministic across many invocations (2.268ms)","<span class=\"check\">✔</span> P03.D: malformed moderatorCategoryIds JSON falls back to false (moderator) (3.1325ms)","<span class=\"check\">✔</span> P03.E: requireRole(...allowed) returns 401 when req.user is missing (2.2116ms)","<span class=\"check\">✔</span> P03.F: requireRole denies users whose role is not in the allowed set (3.7017ms)","<span class=\"check\">✔</span> P03.G: requireRole calls next() exactly once iff role ∈ allowed (1.3503ms)","<span class=\"check\">✔</span> P03.H: active admin can moderate ANY category (irrespective of moderatorCategoryIds) (1.5341ms)","<span class=\"check\">✔</span> P04.A: non-existent empNo returns the canonical 401 envelope (1227.5065ms)","<span class=\"check\">✔</span> P04.B: existing empNo + wrong password returns the canonical 401 envelope (979.4831ms)","<span class=\"check\">✔</span> P04.C: disabled user with correct password returns the canonical 401 envelope (732.7175ms)","<span class=\"check\">✔</span> P04.D: response envelopes are pairwise identical across all failure variants (2012.2771ms)","<span class=\"check\">✔</span> P04.E: missing fields yield 400 (distinct from 401 anti-enumeration) (27.0575ms)","<span class=\"check\">✔</span> P04.F: valid credentials succeed (sanity, non-vacuous failure tests) (18.8983ms)","<span class=\"check\">✔</span> P05.A: POST /api/posts rejects invalid payloads with no DB / AuditLog side effect (2604.4142ms)","<span class=\"check\">✔</span> P05.B: POST /api/admin/categories rejects missing-name payload with no DB side effect (1772.6898ms)","<span class=\"check\">✔</span> P05.C: POST /api/reports rejects invalid payloads with no DB side effect (1618.3677ms)","<span class=\"check\">✔</span> P05.D: PUT /api/admin/settings rejects unknown keys with no DB / AuditLog side effect (1392.8375ms)","<span class=\"check\">✔</span> P05.E: PUT /api/users/me with empty payload does not mutate user fields (814.1425ms)","<span class=\"check\">✔</span> P12.D: empty / pure-stopword query → returns [] (4.3007ms)","<span class=\"check\">✔</span> P12.E: a post titled with keyword K is recalled when query=K (small corpus) (593.7366ms)","<span class=\"check\">✔</span> P12.F: returned items expose the documented RAG-context shape (565.2452ms)","<span class=\"check\">✔</span> P12.G: default topN=5 yields items.length ≤ 5 (467.2643ms)","<span class=\"check\">✔</span> P13.A: no-match → exact shape { cleanText: 原文, hits: [], blocked: false, needReview: false } (7946.7464ms)","<span class=\"check\">✔</span> P13.B: mask hits replace with same-length * and preserve overall length; blocked/needReview only set by their own strategies (2979.7069ms)","<span class=\"check\">✔</span> P13.C: any hit on a block word sets blocked=true and adds it to hits (2464.724ms)","<span class=\"check\">✔</span> P13.D: any hit on a review word sets needReview=true and adds it to hits (2396.6427ms)","<span class=\"check\">✔</span> P13.E: blocked and needReview are independent (can both be true simultaneously) (2250.545ms)","<span class=\"check\">✔</span> P13.F: result shape is exact, hits superset of all embedded words (2200.6136ms)","<span class=\"check\">✔</span> P14.A: insert(word) + invalidate() → next filter hits that word (8202.8853ms)","<span class=\"check\">✔</span> P14.B: delete(word) + invalidate() → next filter no longer hits that word (3058.9602ms)","<span class=\"check\">✔</span> P14.C: arbitrary add/remove sequence + invalidate() → filter is consistent with current DB state (2777.8862ms)","<span class=\"check\">✔</span> P14.D: emptying the table + invalidate() → no-match shape on any input (2294.2497ms)","<span class=\"check\">✔</span> P15: AI 审核状态映射 (POST /api/posts) (3745.2939ms)","<span class=\"check\">✔</span> P16.A: Post.likeCount === count(Like postId=P) after every toggle step (10106.0728ms)","<span class=\"check\">✔</span> P16.A': double-toggle by same user returns post.likeCount to baseline (1518.3128ms)","<span class=\"check\">✔</span> P16.B: Post.favoriteCount === count(Favorite postId=P) after every toggle step (3854.3276ms)","<span class=\"check\">✔</span> P16.B': double-toggle by same user returns post.favoriteCount to baseline (1230.996ms)","<span class=\"check\">✔</span> P16.C: Comment.likeCount === count(Like targetType=comment) after every toggle step (3545.9993ms)","<span class=\"check\">✔</span> P32.D: keyword=\"%\" must NOT return all published posts (LIKE wildcard escape) (8.0238ms)","<span class=\"check\">✔</span> P33.A: ALLOWED set equals the design-document whitelist (2.5773ms)","<span class=\"check\">✔</span> P33.B: isExtensionAllowed iff extension in whitelist (case-insensitive) (8.4764ms)","<span class=\"check\">✔</span> P33.B2: isExtensionAllowed rejects non-string inputs (0.2902ms)","<span class=\"check\">✔</span> P33.C: isSizeAllowed iff sizeBytes &lt;= MAX_UPLOAD_MB * 1024 * 1024 (1.4347ms)","<span class=\"check\">✔</span> P33.C2: isSizeAllowed rejects negative / NaN / non-finite sizes (0.3915ms)","<span class=\"check\">✔</span> P33.D: combined accept iff (extOk AND sizeOk); reject iff EITHER fails (7.5259ms)","<span class=\"check\">✔</span> P33.E: fileFilter accepts iff isExtensionAllowed(originalname) (4.2366ms)","<span class=\"check\">✔</span> P33.F: buildFilename preserves lowercase extension and matches URL regex (2.4573ms)","<span class=\"check\">✔</span> P33.G: every (filename, size) is decisively classified — no ambiguity (3.5076ms)","<span class=\"check\">✔</span> P33.H: upload.limits.fileSize equals MAX_UPLOAD_MB * 1024 * 1024 (0.4769ms)","<span class=\"check\">✔</span> P34: GET /api/admin/stats matches independently-computed aggregates (4415.7333ms)","<span class=\"check\">✔</span> P35: admin user search returns sorted, paginated, redacted subset matching keyword (2160.0815ms)","<span class=\"check\">✔</span> P36.A: ok(res, data, message?) emits {code:0, message, data} envelope (60.0299ms)","<span class=\"check\">✔</span> P36.B: fail(res, message, code, status) emits {code, message, data:null} envelope (11.9167ms)","<span class=\"check\">✔</span> P36.C: fail with default args produces envelope (code=1, status=400, message=\"error\") (0.3629ms)","<span class=\"check\">✔</span> P36.D: errorHandler(err, req, res, next) emits envelope for any Error (12.2865ms)","<span class=\"check\">✔</span> P36.E: errorHandler envelope never contains \"stack\" key (7.5029ms)","<span class=\"check\">✔</span> P36.F: notFound(req, res) emits {code:404, message:string, data:null} envelope (3.2147ms)","<span class=\"check\">✔</span> P36.G: extreme messages (huge / unicode / emoji) preserve envelope shape (77.2574ms)","<span class=\"check\">✔</span> P36.H: code is always typeof \"number\" (incl. NaN, Infinity) (1.5676ms)","<span class=\"check\">✔</span> P37: detectPromptInjection 输出结构对任意字符串都形态合法 (19.4269ms)","<span class=\"check\">✔</span> P37: detectPromptInjection 是纯函数 — 相同输入永远相同输出 (5.4752ms)","<span class=\"check\">✔</span> P37: 典型注入模板必被识别为 injected=true (1.6577ms)","<span class=\"check\">✔</span> P37: 典型注入模板带前后缀干扰仍被识别 (2.0221ms)","<span class=\"check\">✔</span> P37: 良性技术讨论文本不被误判（低误伤） (0.486ms)","<span class=\"check\">✔</span> P37: reason 文本不泄漏 stack / key / url 等敏感片段 (1.3334ms)","<span class=\"check\">✔</span> P37: 对任意奇异输入（null/undefined/非字符串/超长）不抛异常 (0.784ms)","<span class=\"check\">✔</span> P36.C: fail with default args produces envelope (code=1, status=400, message=\"error\") (0.3629ms)","<span class=\"info\">ℹ</span> tests 147","<span class=\"info\">ℹ</span> pass 147","<span class=\"info\">ℹ</span> fail 0","<span class=\"info\">ℹ</span> cancelled 0","<span class=\"info\">ℹ</span> skipped 0","<span class=\"info\">ℹ</span> todo 0","<span class=\"info\">ℹ</span> duration_ms 21832.6219"];
+    const termLogs = [
+      { text: '<span class="prompt">PS D:\YXB\code\community\backend> </span>', delay: 100 },
+      { text: 'n', delay: 35 },
+      { text: 'p', delay: 35 },
+      { text: 'm', delay: 35 },
+      { text: ' ', delay: 35 },
+      { text: 'r', delay: 35 },
+      { text: 'u', delay: 35 },
+      { text: 'n', delay: 35 },
+      { text: ' ', delay: 35 },
+      { text: 't', delay: 35 },
+      { text: 'e', delay: 35 },
+      { text: 's', delay: 35 },
+      { text: 't', delay: 35 },
+      { text: ':', delay: 35 },
+      { text: 'p', delay: 35 },
+      { text: 'r', delay: 35 },
+      { text: 'o', delay: 35 },
+      { text: 'p', delay: 35 },
+      { text: 'e', delay: 35 },
+      { text: 'r', delay: 35 },
+      { text: 't', delay: 35 },
+      { text: 'y', delay: 35 },
+      { text: '\n\n', delay: 300 }
+    ];
+    
+    realLogs.forEach((line, idx) => {
+      let delay = 15;
+      if (line.includes('check') || line.includes('✔')) {
+        delay = 20;
+      } else if (line.includes('duration') || line.includes('pass')) {
+        delay = 50;
+      }
+      termLogs.push({ text: line + '\n', delay });
+    });
+    
+    // Add extra padding line breaks at the bottom of the terminal output so the last summary lines scroll up completely
+    termLogs.push({ text: '<br><br><br><br>', delay: 100 });
+    
+    function renderTerminal(el, logs) {
+      const commandItems = logs.slice(0, 24);
+      const logItems = logs.slice(24);
+      const commandHtml = commandItems.map(item => {
+        if (item.text === '\n\n') return '<br><br>';
+        if (item.text.endsWith('\n')) return item.text.replace('\n', '<br>');
+        return item.text;
+      }).join('');
+      const bodyHtml = logItems.map(item => item.text.endsWith('\n') ? item.text.replace('\n', '<br>') : item.text).join('');
+      el.innerHTML = commandHtml;
+      el.scrollTop = 0;
+      setTimeout(() => {
+        el.innerHTML = commandHtml + bodyHtml;
+        el.scrollTop = 0;
+        const maxScroll = () => Math.max(0, el.scrollHeight - el.clientHeight);
+        const start = performance.now();
+        const duration = 3800;
+        function step(now) {
+          const t = Math.min(1, (now - start) / duration);
+          el.scrollTop = maxScroll() * t;
+          if (t < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }, 3000);
+    }
+    
+    setTimeout(() => {
+      s1.classList.remove('active');
+      s2.classList.add('active');
+      const termEl = document.getElementById('termBody');
+      renderTerminal(termEl, termLogs);
+    }, 23000);
+    
+  </script>
+</body>
+</html>

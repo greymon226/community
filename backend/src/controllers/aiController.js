@@ -1,12 +1,70 @@
 'use strict';
 
 const crypto = require('crypto');
+const config = require('../config');
 const { ok, fail } = require('../utils/response');
 const ai = require('../services/aiService');
 const search = require('../services/searchService');
 const settings = require('../services/settingService');
 const cache = require('../services/cacheService');
 const moderation = require('../services/moderationService');
+const metrics = require('../services/aiMetricsService');
+
+function askCacheKey(question) {
+  const qHash = crypto.createHash('sha1').update(question.toLowerCase()).digest('hex').slice(0, 16);
+  return `ai:ask:${qHash}`;
+}
+
+function buildAskCachePayload({
+  question, answer, hasAnswer, citations, candidates, model, elapsedMs, usage, used, limit,
+}) {
+  return {
+    question,
+    answer,
+    hasAnswer,
+    citations,
+    candidates,
+    model,
+    elapsedMs,
+    usage,
+    cached: false,
+    quotaUsed: used + 1,
+    quotaLimit: limit,
+  };
+}
+
+function initAskSse(res) {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+  return (type, payload) => {
+    if (res.writableEnded) return;
+    res.write(`data: ${JSON.stringify({ type, payload })}\n\n`);
+  };
+}
+
+async function replayCachedAskStream(res, cached) {
+  const send = initAskSse(res);
+  send('meta', {
+    candidates: cached.candidates || [],
+    quotaUsed: cached.quotaUsed,
+    quotaLimit: cached.quotaLimit,
+    question: cached.question,
+    cached: true,
+  });
+  const answer = cached.answer || '';
+  if (answer) send('delta', { text: answer });
+  send('done', {
+    hasAnswer: cached.hasAnswer,
+    citations: cached.citations || [],
+    usage: cached.usage,
+    full: answer,
+    cached: true,
+  });
+  res.end();
+}
 
 /**
  * POST /api/ai/ask  body: { question, topN? }
@@ -34,11 +92,13 @@ async function ask(req, res) {
     return fail(res, injection.reason, 4005, 400);
   }
 
-  // 缓存命中
-  const qHash = crypto.createHash('sha1').update(question.toLowerCase()).digest('hex').slice(0, 16);
-  const cacheKey = `ai:ask:${qHash}`;
+  // 缓存命中（与流式接口共用同一 key）
+  const cacheKey = askCacheKey(question);
   const cached = await cache.get(cacheKey);
-  if (cached) return ok(res, { ...cached, cached: true });
+  if (cached) {
+    metrics.record({ feature: 'ask', outcome: 'cached' }).catch(() => {});
+    return ok(res, { ...cached, cached: true });
+  }
 
   // 配额
   const limit = await settings.get('aiAskPerUserDailyLimit');
@@ -82,7 +142,7 @@ async function ask(req, res) {
     category: s.category,
   }));
 
-  const payload = {
+  const payload = buildAskCachePayload({
     question,
     answer: result.answer,
     hasAnswer: result.hasAnswer,
@@ -91,10 +151,9 @@ async function ask(req, res) {
     model: result.model,
     elapsedMs: result.elapsedMs,
     usage: result.usage,
-    cached: false,
-    quotaUsed: used + 1,
-    quotaLimit: limit,
-  };
+    used,
+    limit,
+  });
 
   // 4) 缓存（1h）+ 计数
   await cache.set(cacheKey, payload, 3600);
@@ -127,6 +186,15 @@ async function askStream(req, res) {
     return fail(res, injection.reason, 4005, 400);
   }
 
+  // 缓存命中：复用非流式接口写入的缓存，以 SSE 回放
+  const cacheKey = askCacheKey(question);
+  const cached = await cache.get(cacheKey);
+  if (cached) {
+    metrics.record({ feature: 'ask', outcome: 'cached' }).catch(() => {});
+    await replayCachedAskStream(res, cached);
+    return;
+  }
+
   // 配额（流式同样占用 ask 的额度，避免被绕过）
   const limit = await settings.get('aiAskPerUserDailyLimit');
   const today = new Date().toISOString().slice(0, 10);
@@ -143,12 +211,7 @@ async function askStream(req, res) {
     id: s.id, title: s.title, summary: s.summary, author: s.author, category: s.category,
   }));
 
-  // 准备 SSE 响应
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // 关闭 Nginx 缓冲
-  res.flushHeaders?.();
+  const send = initAskSse(res);
 
   const abort = new AbortController();
   let closed = false;
@@ -159,38 +222,52 @@ async function askStream(req, res) {
     }
   });
 
-  const send = (type, payload) => {
+  const emit = (type, payload) => {
     if (closed || res.writableEnded) return;
-    res.write(`data: ${JSON.stringify({ type, payload })}\n\n`);
+    send(type, payload);
   };
 
   // 先发 meta：候选 + 配额，让前端立刻渲染骨架
-  send('meta', { candidates, quotaUsed: used + 1, quotaLimit: limit, question });
+  emit('meta', { candidates, quotaUsed: used + 1, quotaLimit: limit, question });
 
   let full = '';
+  let donePayload = null;
   try {
     await ai.streamAnswer(question, sources, (type, data) => {
       if (type === 'delta') {
         full += data.text;
-        send('delta', { text: data.text });
+        emit('delta', { text: data.text });
       } else if (type === 'done') {
-        // 把编号 -> 帖子映射后的引用列表附上
         const citedSet = new Set(data.citedSourceIds || []);
         const citations = sources
           .filter((s) => citedSet.has(s.id))
           .map((s) => ({ id: s.id, title: s.title, summary: s.summary, author: s.author, category: s.category }));
-        send('done', {
+        donePayload = {
           hasAnswer: data.hasAnswer,
           citations,
           usage: data.usage,
           full: data.full,
-        });
+        };
+        emit('done', donePayload);
       }
     }, { signal: abort.signal });
-    // 流式调用占用一次额度
-    if (!closed) await cache.set(quotaKey, used + 1, 24 * 3600);
+    if (!closed && donePayload) {
+      await cache.set(cacheKey, buildAskCachePayload({
+        question,
+        answer: full || donePayload.full || '',
+        hasAnswer: donePayload.hasAnswer,
+        citations: donePayload.citations,
+        candidates,
+        model: config.ai.model,
+        elapsedMs: null,
+        usage: donePayload.usage,
+        used,
+        limit,
+      }), 3600);
+      await cache.set(quotaKey, used + 1, 24 * 3600);
+    }
   } catch (e) {
-    if (!closed) send('error', { message: e.message });
+    if (!closed) emit('error', { message: e.message });
   } finally {
     if (!res.writableEnded) res.end();
   }

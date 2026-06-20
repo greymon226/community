@@ -241,6 +241,7 @@ async function askWithRAG(question, sources = []) {
   if (!q) throw new Error('问题不能为空');
 
   if (sources.length === 0) {
+    metrics.record({ feature: 'ask', outcome: 'fallback', elapsedMs: 0 }).catch(() => {});
     return {
       answer: '站内还没有找到相关讨论。建议把问题发到对应板块求助，或换一个关键词再搜搜。',
       citedSourceIds: [],
@@ -324,7 +325,9 @@ async function assistTitle({ title, content }) {
     '4) 避免标题党、感叹号、emoji；' +
     '5) 第一个候选偏简洁，后面可逐步加入更多上下文。';
   const user = `当前标题：${t || '（未填写）'}\n当前正文：${c || '（空）'}`;
-  const { parsed } = await callLLMJSON({ system, user, temperature: 0.5 });
+  const t0 = Date.now();
+  const { parsed, usage } = await callLLMJSON({ system, user, temperature: 0.5 });
+  metrics.record({ feature: 'assist', outcome: 'success', elapsedMs: Date.now() - t0, usage }).catch(() => {});
   const arr = (v) => (Array.isArray(v) ? v.filter(Boolean).map((s) => String(s).slice(0, 100)) : []);
   return { suggestions: arr(parsed.suggestions).slice(0, 5) };
 }
@@ -342,7 +345,9 @@ async function summarize({ title, content }) {
     '不超过 120 字，不要使用 markdown，不要复述标题，不要展开次要细节。' +
     '严格只返回 JSON：{"summary":"..."}。';
   const user = `标题：${t}\n正文：${c}`;
-  const { parsed } = await callLLMJSON({ system, user, temperature: 0.3 });
+  const t0 = Date.now();
+  const { parsed, usage } = await callLLMJSON({ system, user, temperature: 0.3 });
+  metrics.record({ feature: 'assist', outcome: 'success', elapsedMs: Date.now() - t0, usage }).catch(() => {});
   return { summary: String(parsed.summary || '').slice(0, 300) };
 }
 
@@ -361,7 +366,9 @@ async function explainCode({ snippet, language = '' }) {
     '严格只返回 JSON：{"explanation":"...","risks":["..."],"suggestions":["..."]}。' +
     '语言中文，risks/suggestions 各 0-4 条，过短或无问题时可为空。';
   const user = `语言提示：${language || '未指定'}\n代码：\n${code}`;
-  const { parsed } = await callLLMJSON({ system, user, temperature: 0.3 });
+  const t0 = Date.now();
+  const { parsed, usage } = await callLLMJSON({ system, user, temperature: 0.3 });
+  metrics.record({ feature: 'assist', outcome: 'success', elapsedMs: Date.now() - t0, usage }).catch(() => {});
   const arr = (v) => (Array.isArray(v) ? v.filter(Boolean).map((s) => String(s).slice(0, 300)) : []);
   return {
     explanation: String(parsed.explanation || '').slice(0, 1000),
@@ -386,6 +393,7 @@ async function streamAnswer(question, sources, onChunk, options = {}) {
 
   // 没有上下文时直接返回引导文案，无需调模型
   if (sources.length === 0) {
+    metrics.record({ feature: 'ask', outcome: 'fallback', elapsedMs: 0 }).catch(() => {});
     const text = '站内还没有找到相关讨论。建议把问题发到对应板块求助，或换一个关键词再搜搜。';
     onChunk('delta', { text });
     onChunk('done', { full: text, hasAnswer: false, citedSourceIds: [], usage: null });
@@ -423,6 +431,7 @@ async function streamAnswer(question, sources, onChunk, options = {}) {
     ],
   };
 
+  const t0 = Date.now();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), config.ai.timeoutMs * 2);
   const externalSignal = options.signal;
@@ -499,6 +508,7 @@ async function streamAnswer(question, sources, onChunk, options = {}) {
       .filter((x) => x !== null)
   )];
   const hasAnswer = full.trim().length > 0 && cited.length > 0;
+  metrics.record({ feature: 'ask', outcome: 'success', elapsedMs: Date.now() - t0, usage }).catch(() => {});
   onChunk('done', { full, hasAnswer, citedSourceIds: cited, usage });
 }
 

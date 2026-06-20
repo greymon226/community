@@ -29,34 +29,39 @@ const { api, login, expectOk, assert, step, pass, BASE } = require('./_helper');
 
   step('发起 SSE 请求');
   const Q = `Vue3 响应式丢失排查方法 (e2e-${Date.now()})`;
-  const resp = await fetch(`${BASE}/ai/ask/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-    body: JSON.stringify({ question: Q, topN: 5 }),
-  });
-  assert(resp.ok, `expected 200, got ${resp.status}`);
-  assert(resp.headers.get('content-type')?.includes('text/event-stream'), 'content-type 应为 SSE');
+  const streamAsk = async (question) => {
+    const resp = await fetch(`${BASE}/ai/ask/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ question, topN: 5 }),
+    });
+    assert(resp.ok, `expected 200, got ${resp.status}`);
+    assert(resp.headers.get('content-type')?.includes('text/event-stream'), 'content-type 应为 SSE');
 
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  let buffer = '';
-  const events = [];
-  let answer = '';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    const events = [];
+    let answer = '';
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buffer.indexOf('\n\n')) >= 0) {
-      const raw = buffer.slice(0, idx).trim();
-      buffer = buffer.slice(idx + 2);
-      if (!raw.startsWith('data:')) continue;
-      const evt = JSON.parse(raw.slice(5).trim());
-      events.push(evt);
-      if (evt.type === 'delta') answer += evt.payload?.text || '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) >= 0) {
+        const raw = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 2);
+        if (!raw.startsWith('data:')) continue;
+        const evt = JSON.parse(raw.slice(5).trim());
+        events.push(evt);
+        if (evt.type === 'delta') answer += evt.payload?.text || '';
+      }
     }
-  }
+    return { events, answer };
+  };
+
+  const { events, answer } = await streamAsk(Q);
 
   pass(`收到 ${events.length} 帧`);
   const types = events.map((e) => e.type);
@@ -72,6 +77,15 @@ const { api, login, expectOk, assert, step, pass, BASE } = require('./_helper');
   assert(Array.isArray(meta.candidates), 'meta.candidates');
   assert(Array.isArray(doneEvt.citations), 'done.citations');
   pass(`候选 ${meta.candidates.length} 引用 ${doneEvt.citations.length} hasAnswer=${doneEvt.hasAnswer}`);
+
+  step('同问题再次提问应命中缓存');
+  const cached = await streamAsk(Q);
+  const cachedMeta = cached.events.find((e) => e.type === 'meta').payload;
+  const cachedDone = cached.events.find((e) => e.type === 'done').payload;
+  assert(cachedMeta.cached === true, `meta.cached 应为 true, got ${cachedMeta.cached}`);
+  assert(cachedDone.cached === true, `done.cached 应为 true, got ${cachedDone.cached}`);
+  assert(cached.answer === answer, '缓存回放内容应与首次一致');
+  pass('流式接口命中缓存');
 
   console.log('\n✅ ai_ask_stream 通过');
   process.exit(0);
