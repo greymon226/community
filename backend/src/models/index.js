@@ -21,6 +21,7 @@ if (config.db.dialect === 'sqlite') {
     dialect: 'sqlite',
     storage,
     logging: false,
+    pool: { max: 1, min: 0, idle: 10000 },
   });
 } else {
   // 默认 mysql：mysql2 驱动是纯 JS，无需本地编译

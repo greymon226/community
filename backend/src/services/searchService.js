@@ -2,7 +2,7 @@
 
 // 搜索服务抽象：默认基于数据库 LIKE，可替换为 Elasticsearch
 const { Op, literal } = require('sequelize');
-const { Post, User, Category, Tag } = require('../models');
+const { Post, User, Category, Tag, PostTag } = require('../models');
 const { cleanPlainText } = require('../utils/sanitize');
 
 async function searchPosts({ keyword, categoryId, authorId, tag, sort = 'latest', page = 1, pageSize = 10 }) {
@@ -66,36 +66,79 @@ module.exports.__test = { tokenize, extractSnippet };
 async function searchForRAG(question, { topN = 5 } = {}) {
   const tokens = tokenize(question);
   if (tokens.length === 0) return [];
+  const normalizedQuestion = cleanPlainText(question).toLowerCase();
 
   const orClauses = [];
   for (const t of tokens) {
     orClauses.push(buildLikeSearchCondition(t, ['title', 'content', 'summary']));
   }
 
-  // 召回更多候选，再用本地评分排序后取 topN
-  const candidates = await Post.findAll({
+  // 召回更多候选，再用本地混合评分排序后取 topN。
+  // 目前使用数据库 LIKE + 标签召回；后续可把两个候选源替换为 FULLTEXT / 向量检索。
+  const includeForRag = [
+    { model: User, as: 'author', attributes: ['id', 'nickname', 'name'] },
+    { model: Category, as: 'category', attributes: ['id', 'name'] },
+    { model: Tag, as: 'tags', attributes: ['id', 'name'], through: { attributes: [] }, required: false },
+  ];
+
+  const textCandidates = await Post.findAll({
     where: { status: 'published', [Op.or]: orClauses },
-    include: [
-      { model: User, as: 'author', attributes: ['id', 'nickname', 'name'] },
-      { model: Category, as: 'category', attributes: ['id', 'name'] },
-    ],
+    include: includeForRag,
     order: [['likeCount', 'DESC'], ['createdAt', 'DESC']],
     limit: Math.max(20, topN * 4),
   });
 
+  const matchingTags = await Tag.findAll({
+    where: { name: { [Op.in]: tokens } },
+    attributes: ['id'],
+  });
+  const tagLinks = matchingTags.length
+    ? await PostTag.findAll({
+        where: { tagId: { [Op.in]: matchingTags.map((t) => t.id) } },
+        attributes: ['postId'],
+        limit: Math.max(20, topN * 4),
+      })
+    : [];
+  const tagPostIds = [...new Set(tagLinks.map((link) => link.postId))];
+
+  const tagCandidates = tagPostIds.length
+    ? await Post.findAll({
+        where: { status: 'published', id: { [Op.in]: tagPostIds } },
+        include: includeForRag,
+        order: [['likeCount', 'DESC'], ['createdAt', 'DESC']],
+      })
+    : [];
+
+  const byId = new Map();
+  for (const p of [...textCandidates, ...tagCandidates]) byId.set(p.id, p);
+  const candidates = [...byId.values()];
+
   const scored = candidates
     .map((p) => {
       const plainTitle = (p.title || '').toLowerCase();
+      const plainSummary = cleanPlainText(p.summary || '').toLowerCase();
       const plainContent = cleanPlainText(p.content || '').toLowerCase();
+      const plainCategory = (p.category?.name || '').toLowerCase();
+      const tagText = (p.tags || []).map((t) => t.name).join(' ').toLowerCase();
       let score = 0;
+      if (normalizedQuestion.length >= 3) {
+        if (plainTitle.includes(normalizedQuestion)) score += 12;
+        if (plainSummary.includes(normalizedQuestion)) score += 8;
+        if (plainContent.includes(normalizedQuestion)) score += 5;
+      }
       for (const t of tokens) {
         const lt = t.toLowerCase();
-        if (plainTitle.includes(lt)) score += 5; // 标题命中权重高
+        if (plainTitle.includes(lt)) score += 6; // 标题命中权重高
+        if (plainSummary.includes(lt)) score += 3;
+        if (plainCategory.includes(lt)) score += 2;
+        if (tagText.includes(lt)) score += 6;
         const occurrences = plainContent.split(lt).length - 1;
         score += Math.min(occurrences, 5); // 正文命中次数（封顶 5 防止刷分）
       }
       // 互动质量微加权
       score += Math.log10(1 + (p.likeCount || 0)) * 0.3;
+      score += Math.log10(1 + (p.commentCount || 0)) * 0.2;
+      score += Math.log10(1 + (p.viewCount || 0)) * 0.1;
       return { post: p, score };
     })
     .filter((x) => x.score > 0)
@@ -109,6 +152,7 @@ async function searchForRAG(question, { topN = 5 } = {}) {
     snippet: extractSnippet(cleanPlainText(post.content || ''), tokens, 600),
     author: post.author?.nickname || post.author?.name || '',
     category: post.category?.name || '',
+    tags: (post.tags || []).map((t) => t.name),
     likeCount: post.likeCount,
     commentCount: post.commentCount,
     createdAt: post.createdAt,

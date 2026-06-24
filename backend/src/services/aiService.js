@@ -256,7 +256,7 @@ async function askWithRAG(question, sources = []) {
   const ctx = sources
     .map((s, i) => {
       const head = `[${i + 1}] 帖子#${s.id} 《${(s.title || '').slice(0, 80)}》`;
-      const meta = `分类: ${s.category || '-'} 作者: ${s.author || '-'}`;
+      const meta = `分类: ${s.category || '-'} 作者: ${s.author || '-'} 标签: ${(s.tags || []).join(', ') || '-'}`;
       const body = (s.snippet || s.summary || '').slice(0, 800);
       return `${head}\n${meta}\n${body}`;
     })
@@ -403,7 +403,7 @@ async function streamAnswer(question, sources, onChunk, options = {}) {
   const ctx = sources
     .map((s, i) => {
       const head = `[${i + 1}] 帖子#${s.id} 《${(s.title || '').slice(0, 80)}》`;
-      const meta = `分类: ${s.category || '-'} 作者: ${s.author || '-'}`;
+      const meta = `分类: ${s.category || '-'} 作者: ${s.author || '-'} 标签: ${(s.tags || []).join(', ') || '-'}`;
       const body = (s.snippet || s.summary || '').slice(0, 800);
       return `${head}\n${meta}\n${body}`;
     })

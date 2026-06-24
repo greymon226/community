@@ -149,6 +149,8 @@ ensure_env_file() {
 # 由 deploy.sh 生成于 $(date -Iseconds)
 HTTP_PORT=${HTTP_PORT}
 PUBLIC_DOMAIN=${DOMAIN}
+PUBLIC_BASE_URL=http://${DOMAIN}
+MCP_API_KEY=
 
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PWD}
 DB_NAME=community
@@ -169,7 +171,12 @@ AI_MODEL=deepseek-chat
 AI_TIMEOUT_MS=15000
 
 CAS_SERVER_URL=
-CAS_SERVICE_URL=
+CAS_SERVICE_URL=http://${DOMAIN}/login/cas-callback
+CAS_ATTR_EMP_NO=empNo,employeeNumber,uid,user
+CAS_ATTR_NAME=name,displayName,cn
+CAS_ATTR_EMAIL=email,mail
+CAS_ATTR_DEPARTMENT=department,departmentName,dept
+CAS_ATTR_AVATAR=avatar,picture
 
 # 部署时记录的初始管理员工号
 SEED_ADMIN_EMPNO=${ADMIN_NO}
@@ -182,6 +189,37 @@ EOF
 
 compose() {
   $DC --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+pull_latest_code() {
+  if [[ ! -d .git ]]; then
+    warn "当前目录不是 git 仓库，跳过 git pull"
+    return 0
+  fi
+
+  local mode="${DEPLOY_GIT_PULL_MODE:-auto}"
+  case "$mode" in
+    ff-only)
+      git pull --ff-only
+      ;;
+    rebase)
+      git pull --rebase --autostash
+      ;;
+    merge)
+      GIT_MERGE_AUTOEDIT=no git pull
+      ;;
+    auto)
+      if git pull --ff-only; then
+        return 0
+      fi
+      warn "fast-forward 拉取失败，尝试按本机 git pull 配置继续拉取"
+      GIT_MERGE_AUTOEDIT=no git pull
+      ;;
+    *)
+      err "未知 DEPLOY_GIT_PULL_MODE: $mode，可选 auto|ff-only|rebase|merge"
+      return 1
+      ;;
+  esac
 }
 
 cmd_up() {
@@ -198,11 +236,7 @@ cmd_up() {
 cmd_update() {
   ensure_env_file
   section "拉取最新代码"
-  if [[ -d .git ]]; then
-    git pull --ff-only || warn "git pull 失败，使用本地代码继续构建"
-  else
-    warn "当前目录不是 git 仓库，跳过 git pull"
-  fi
+  pull_latest_code || { err "git pull 失败，已停止部署，避免使用旧代码继续构建"; exit 1; }
   compose build --pull
   compose up -d
   ok "更新完成"

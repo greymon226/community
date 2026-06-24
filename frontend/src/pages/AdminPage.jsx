@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Card, Tabs, Statistic, Row, Col, Table, Tag, Button, Space, Input, Select, Modal, Form, App, Popconfirm, Switch, InputNumber,
+  Card, Tabs, Statistic, Row, Col, Table, Tag, Button, Space, Input, Select, Modal, Form, App, Popconfirm, Switch, InputNumber, Empty, Tooltip,
 } from 'antd';
 import dayjs from 'dayjs';
 import { adminApi, categoryApi, reportApi } from '../api';
@@ -408,6 +408,8 @@ function AiMonitor() {
 
   const { today, last7Days, totals, cost } = data;
   const featureNames = { audit: '内容审核', explain: '帖子解读', ask: 'RAG 问答', assist: '写作助手', recommend: '智能推荐' };
+  const todayRows = Object.entries(today).map(([k, v]) => ({ feature: k, ...v }));
+  const outcomeTotal = totals.weekSuccess + totals.weekFallback + totals.weekBlocked + totals.weekCached;
 
   return (
     <div>
@@ -469,11 +471,32 @@ function AiMonitor() {
         </Col>
       </Row>
 
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={15}>
+          <Card size="small" title="近 7 天 AI 调用趋势">
+            <TrendChart data={last7Days} featureNames={featureNames} />
+          </Card>
+        </Col>
+        <Col xs={24} lg={9}>
+          <Card size="small" title="近 7 天治理分布">
+            <RatioBar
+              items={[
+                { label: '成功', value: totals.weekSuccess, color: '#52c41a' },
+                { label: '降级', value: totals.weekFallback, color: '#faad14' },
+                { label: '拦截', value: totals.weekBlocked, color: '#ff4d4f' },
+                { label: '缓存', value: totals.weekCached, color: '#1677ff' },
+              ]}
+              total={outcomeTotal}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       {/* 按功能分拆的今日统计表 */}
       <Card size="small" title="今日各功能明细" style={{ marginBottom: 16 }}>
         <Table
           rowKey="feature"
-          dataSource={Object.entries(today).map(([k, v]) => ({ feature: k, ...v }))}
+          dataSource={todayRows}
           pagination={false}
           size="small"
           columns={[
@@ -490,7 +513,7 @@ function AiMonitor() {
       </Card>
 
       {/* 近 7 天趋势简表 */}
-      <Card size="small" title="近 7 天趋势">
+      <Card size="small" title="近 7 天趋势明细">
         <Table
           rowKey="date"
           dataSource={last7Days}
@@ -518,6 +541,130 @@ function AiMonitor() {
           {cost.note}
         </p>
       </Card>
+    </div>
+  );
+}
+
+function TrendChart({ data, featureNames }) {
+  const keys = Object.keys(featureNames);
+  if (!data || data.length === 0) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无趋势数据" />;
+  }
+  const colors = ['#1677ff', '#52c41a', '#faad14', '#eb2f96', '#722ed1'];
+  const width = 640;
+  const height = 220;
+  const padding = { top: 16, right: 18, bottom: 34, left: 36 };
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
+  const maxValue = Math.max(1, ...data.flatMap((row) => keys.map((k) => row[k] || 0)));
+  const x = (idx) => padding.left + (data.length <= 1 ? 0 : (idx / (data.length - 1)) * innerW);
+  const y = (value) => padding.top + innerH - (value / maxValue) * innerH;
+
+  const pathFor = (key) => data
+    .map((row, idx) => `${idx === 0 ? 'M' : 'L'}${x(idx).toFixed(1)},${y(row[key] || 0).toFixed(1)}`)
+    .join(' ');
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="近 7 天 AI 调用趋势">
+        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={padding.top + innerH} stroke="#f0f0f0" />
+        <line x1={padding.left} y1={padding.top + innerH} x2={padding.left + innerW} y2={padding.top + innerH} stroke="#f0f0f0" />
+        {[0, 0.5, 1].map((ratio) => (
+          <g key={ratio}>
+            <line
+              x1={padding.left}
+              y1={padding.top + innerH * ratio}
+              x2={padding.left + innerW}
+              y2={padding.top + innerH * ratio}
+              stroke="#fafafa"
+            />
+            <text x={8} y={padding.top + innerH * ratio + 4} fontSize="11" fill="#8c8c8c">
+              {Math.round(maxValue * (1 - ratio))}
+            </text>
+          </g>
+        ))}
+        <style>{`
+          .trend-circle {
+            transition: r 0.15s ease, stroke-width 0.15s ease;
+          }
+          .trend-circle:hover {
+            r: 6px;
+            stroke-width: 3.5px;
+          }
+        `}</style>
+        {keys.map((key, lineIdx) => (
+          <g key={key}>
+            <path d={pathFor(key)} fill="none" stroke={colors[lineIdx]} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            {data.map((row, idx) => {
+              const val = row[key] || 0;
+              return (
+                <Tooltip
+                  key={`${key}-${idx}`}
+                  title={`${row.date} | ${featureNames[key]}: ${val} 次`}
+                  arrow
+                >
+                  <circle
+                    cx={x(idx)}
+                    cy={y(val)}
+                    r="4"
+                    fill="#ffffff"
+                    stroke={colors[lineIdx]}
+                    strokeWidth="2.5"
+                    className="trend-circle"
+                    style={{ cursor: 'pointer' }}
+                  />
+                </Tooltip>
+              );
+            })}
+          </g>
+        ))}
+        {data.map((row, idx) => (
+          <text key={row.date} x={x(idx)} y={height - 10} textAnchor="middle" fontSize="11" fill="#8c8c8c">
+            {row.date.slice(5)}
+          </text>
+        ))}
+      </svg>
+      <Space wrap size={[12, 4]}>
+        {keys.map((key, idx) => (
+          <span key={key} style={{ fontSize: 12, color: '#595959' }}>
+            <i style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: colors[idx], marginRight: 6 }} />
+            {featureNames[key]}
+          </span>
+        ))}
+      </Space>
+    </div>
+  );
+}
+
+function RatioBar({ items, total }) {
+  const safeTotal = Math.max(1, total || 0);
+  if (!total) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无治理数据" />;
+  }
+  return (
+    <div>
+      <div style={{ display: 'flex', height: 12, overflow: 'hidden', borderRadius: 6, background: '#f5f5f5', marginBottom: 16 }}>
+        {items.map((item) => (
+          <div
+            key={item.label}
+            title={`${item.label}: ${item.value}`}
+            style={{ width: `${(item.value / safeTotal) * 100}%`, background: item.color }}
+          />
+        ))}
+      </div>
+      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+        {items.map((item) => (
+          <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ color: '#595959' }}>
+              <i style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: item.color, marginRight: 6 }} />
+              {item.label}
+            </span>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {item.value} / {((item.value / safeTotal) * 100).toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </Space>
     </div>
   );
 }

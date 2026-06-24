@@ -5,6 +5,10 @@ dist/
 .env.prod
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/data/*.sqlite
 backups/
 *.log
 .DS_Store
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

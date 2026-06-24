@@ -25,6 +25,8 @@
 | **Property 测试** | 37 条 Correctness Properties / 29 个 PBT 文件 / 147 个断言 / 0 失败 |
 | **Kiro Hooks** | 4 个运行时 AI 守护：spec-sync / pbt-on-ai-change / secret-leak-guard / post-task-test |
 | **MCP Server** | 4 个工具（search_posts / get_post / ask_community / recommend_posts），HTTP 端点公网可调 |
+| **AI 治理看板** | 管理后台可查看调用趋势、成功率、降级、拦截、缓存命中与估算费用 |
+| **MCP 安全接入** | 支持 `PUBLIC_BASE_URL` 生成动态链接，支持可选 `MCP_API_KEY` 保护公网端点 |
 | **协作实录** | 8 个真实节点的 AI + 人类协作记录（在 `.kiro/specs/` 下） |
 | **CI/CD** | GitHub Actions 自动跑 unit + property 测试 |
 
@@ -112,6 +114,17 @@ cd ../backend && npm test  # 224 pass (77 unit + 147 property)
 
 > 生产环境对接真实 CAS 时无需密码。
 
+### 真实 CAS 接入
+
+后端已支持最小 CAS 2.0/3.0 `serviceValidate` 流程。配置 `CAS_SERVER_URL` 后会关闭 Mock 模式，前端点击“CAS 单点登录”跳转到企业 CAS，CAS 回调 `/login/cas-callback` 后由前端换取社区 JWT。
+
+```env
+CAS_SERVER_URL=https://cas.example.com/cas
+CAS_SERVICE_URL=https://community.example.com/login/cas-callback
+```
+
+如果企业 CAS 返回的属性名不同，可用 `CAS_ATTR_EMP_NO`、`CAS_ATTR_NAME`、`CAS_ATTR_EMAIL`、`CAS_ATTR_DEPARTMENT`、`CAS_ATTR_AVATAR` 配置逗号分隔的候选字段。工号默认会依次读取 `empNo,employeeNumber,uid,user`。
+
 ---
 
 ## MCP Server（双向 AI 原生）
@@ -155,6 +168,8 @@ curl -X POST http://124.222.8.86/mcp \
        "params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
 ```
 
+公网部署时可在 `.env.prod` 配置 `PUBLIC_BASE_URL` 控制 MCP 返回的帖子链接；配置 `MCP_API_KEY` 后，访问 `/mcp` 与 `/mcp/tools` 需携带 `Authorization: Bearer <key>` 或 `x-mcp-api-key: <key>`。
+
 详见 [`backend/src/mcp/README.md`](backend/src/mcp/README.md)。
 
 ---
@@ -170,14 +185,28 @@ cd backend && npm test
 - 77 个 unit tests（`tests/unit/`）
 - 147 个 property assertions（`tests/property/`，29 个 PBT 文件覆盖 37 条 Property）
 
-E2E 测试需要后端运行：
+### 后端 API E2E
+
+需要后端运行：
 
 ```bash
 npm run start            # 终端 A
 npm run test:e2e         # 终端 B（8 个 e2e 文件）
 ```
 
-CI 状态：每次 push / PR 触发 [GitHub Actions](https://github.com/greymon226/community/actions)，约 2 分钟跑完。
+### 前端浏览器 E2E（Playwright）
+
+自动启动 SQLite 后端 + Vite 开发服务器，覆盖登录、发帖、搜索、评论、AI 问答抽屉等核心 UI 流程：
+
+```bash
+cd frontend
+npm install
+npx playwright install chromium   # 首次需安装浏览器
+npm run test:e2e                  # 11 个用例
+npm run test:e2e:ui               # 可视化调试
+```
+
+CI 状态：每次 push / PR 触发 [GitHub Actions](https://github.com/greymon226/community/actions)，后端 unit/property 与前端 Playwright E2E 并行执行。
 
 ---
 

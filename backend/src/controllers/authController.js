@@ -8,6 +8,7 @@ const { signToken } = require('../middlewares/auth');
 // GET /auth/cas/login-url
 async function loginUrl(req, res) {
   const service = req.query.service || (config.cas.serviceUrl || '');
+  if (!config.cas.mock && !service) return fail(res, 'CAS_SERVICE_URL 未配置', 500, 500);
   return ok(res, {
     mock: config.cas.mock,
     url: cas.buildLoginUrl(service),
@@ -16,6 +17,7 @@ async function loginUrl(req, res) {
 
 // POST /auth/login  Mock 模式：本地账号密码登录
 async function localLogin(req, res) {
+  if (!config.cas.mock) return fail(res, '当前已启用 CAS 登录', 403, 403);
   const { empNo, password } = req.body || {};
   if (!empNo || !password) return fail(res, '工号与密码不能为空');
   const user = await cas.verifyLocalPassword(empNo, password);
@@ -31,8 +33,9 @@ async function casCallback(req, res) {
   const ticket = req.query.ticket;
   if (!ticket) return fail(res, '缺少 ticket', 400);
   try {
-    const profile = await cas.verifyTicket(ticket);
+    const profile = await cas.verifyTicket(ticket, req.query.service);
     const user = await cas.syncUserFromProfile(profile);
+    if (user.status !== 'active') return fail(res, '账号已禁用', 401, 401);
     const token = signToken(user);
     return ok(res, { token, user: shapeUser(user) });
   } catch (e) {

@@ -33,6 +33,12 @@ function buildAskCachePayload({
   };
 }
 
+async function reserveDailyQuota({ key, limit }) {
+  if (!(limit > 0)) return { allowed: true, used: 0, limit };
+  const used = await cache.incr(key, 24 * 3600);
+  return { allowed: used <= limit, used, limit };
+}
+
 function initAskSse(res) {
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -104,8 +110,8 @@ async function ask(req, res) {
   const limit = await settings.get('aiAskPerUserDailyLimit');
   const today = new Date().toISOString().slice(0, 10);
   const quotaKey = `ai:ask:quota:${req.user.id}:${today}`;
-  const used = (await cache.get(quotaKey)) || 0;
-  if (limit > 0 && used >= limit) {
+  const quota = await reserveDailyQuota({ key: quotaKey, limit });
+  if (!quota.allowed) {
     return fail(res, `今日 AI 问答次数已用完（上限 ${limit} 次），请明天再试`, 4004, 429);
   }
 
@@ -151,13 +157,12 @@ async function ask(req, res) {
     model: result.model,
     elapsedMs: result.elapsedMs,
     usage: result.usage,
-    used,
+    used: quota.used - 1,
     limit,
   });
 
-  // 4) 缓存（1h）+ 计数
+  // 4) 缓存（1h）；配额已在调用前原子预占，避免并发绕过每日上限
   await cache.set(cacheKey, payload, 3600);
-  await cache.set(quotaKey, used + 1, 24 * 3600);
 
   return ok(res, payload);
 }
@@ -199,8 +204,8 @@ async function askStream(req, res) {
   const limit = await settings.get('aiAskPerUserDailyLimit');
   const today = new Date().toISOString().slice(0, 10);
   const quotaKey = `ai:ask:quota:${req.user.id}:${today}`;
-  const used = (await cache.get(quotaKey)) || 0;
-  if (limit > 0 && used >= limit) {
+  const quota = await reserveDailyQuota({ key: quotaKey, limit });
+  if (!quota.allowed) {
     return fail(res, `今日 AI 问答次数已用完（上限 ${limit} 次），请明天再试`, 4004, 429);
   }
 
@@ -228,7 +233,7 @@ async function askStream(req, res) {
   };
 
   // 先发 meta：候选 + 配额，让前端立刻渲染骨架
-  emit('meta', { candidates, quotaUsed: used + 1, quotaLimit: limit, question });
+  emit('meta', { candidates, quotaUsed: quota.used, quotaLimit: limit, question });
 
   let full = '';
   let donePayload = null;
@@ -261,10 +266,9 @@ async function askStream(req, res) {
         model: config.ai.model,
         elapsedMs: null,
         usage: donePayload.usage,
-        used,
+        used: quota.used - 1,
         limit,
       }), 3600);
-      await cache.set(quotaKey, used + 1, 24 * 3600);
     }
   } catch (e) {
     if (!closed) emit('error', { message: e.message });
@@ -286,8 +290,8 @@ async function assist(req, res) {
   const limit = await settings.get('aiAssistPerUserDailyLimit');
   const today = new Date().toISOString().slice(0, 10);
   const quotaKey = `ai:assist:quota:${req.user.id}:${today}`;
-  const used = (await cache.get(quotaKey)) || 0;
-  if (limit > 0 && used >= limit) {
+  const quota = await reserveDailyQuota({ key: quotaKey, limit });
+  if (!quota.allowed) {
     return fail(res, `今日 AI 写作助手次数已用完（上限 ${limit} 次），请明天再试`, 4004, 429);
   }
 
@@ -318,6 +322,5 @@ async function assist(req, res) {
     return fail(res, `AI 调用失败：${e.message}`, 5001, 502);
   }
 
-  await cache.set(quotaKey, used + 1, 24 * 3600);
-  return ok(res, { kind, ...result, quotaUsed: used + 1, quotaLimit: limit });
+  return ok(res, { kind, ...result, quotaUsed: quota.used, quotaLimit: limit });
 }

@@ -11,7 +11,8 @@
     "test": "npm run test:unit && npm run test:property",
     "test:unit": "node tests/run-suite.js unit",
     "test:property": "node tests/run-suite.js property",
-    "test:e2e": "node tests/run-all.js"
+    "test:e2e": "node tests/run-all.js",
+    "start:e2e": "node scripts/start-e2e.js"
   },
   "dependencies": {
     "bcryptjs": "2.4.3",

@@ -24,10 +24,25 @@ const config = {
 
   redisUrl: process.env.REDIS_URL || null,
 
+  publicBaseUrl: process.env.PUBLIC_BASE_URL || (
+    process.env.PUBLIC_DOMAIN ? `http://${process.env.PUBLIC_DOMAIN}` : 'http://localhost'
+  ),
+
+  mcp: {
+    apiKey: process.env.MCP_API_KEY || '',
+  },
+
   cas: {
     serverUrl: process.env.CAS_SERVER_URL || null,
     serviceUrl: process.env.CAS_SERVICE_URL || null,
     mock: !process.env.CAS_SERVER_URL,
+    attrs: {
+      empNo: process.env.CAS_ATTR_EMP_NO || 'empNo,employeeNumber,uid,user',
+      name: process.env.CAS_ATTR_NAME || 'name,displayName,cn',
+      email: process.env.CAS_ATTR_EMAIL || 'email,mail',
+      department: process.env.CAS_ATTR_DEPARTMENT || 'department,departmentName,dept',
+      avatar: process.env.CAS_ATTR_AVATAR || 'avatar,picture',
+    },
   },
 
   upload: {

@@ -65,6 +65,31 @@ async function del(key) {
   memoryStore.delete(key);
 }
 
+async function incr(key, ttlSeconds = 60) {
+  if (client) {
+    try {
+      const value = await client.incr(key);
+      if (value === 1 && ttlSeconds > 0) {
+        await client.expire(key, ttlSeconds);
+      }
+      return value;
+    } catch (err) {
+      fallbackToMemory(err);
+    }
+  }
+
+  const entry = memoryStore.get(key);
+  const now = Date.now();
+  const active = entry && (!entry.expireAt || entry.expireAt >= now);
+  const current = active ? Number(entry.value) || 0 : 0;
+  const value = current + 1;
+  memoryStore.set(key, {
+    value,
+    expireAt: active ? entry.expireAt : ttlSeconds > 0 ? now + ttlSeconds * 1000 : null,
+  });
+  return value;
+}
+
 function fallbackToMemory(err) {
   console.warn('[Redis] operation failed, fallback to memory cache:', err.message);
   try {
@@ -75,4 +100,4 @@ function fallbackToMemory(err) {
   client = null;
 }
 
-module.exports = { init, get, set, del };
+module.exports = { init, get, set, del, incr };

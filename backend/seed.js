@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./src/models');
 const { User, Category, Post, Tag, PostTag, SensitiveWord } = db;
 
-async function run() {
+async function run({ close = true } = {}) {
   await db.sequelize.sync({ alter: true });
 
   // 用户
@@ -288,10 +288,14 @@ async function run() {
   console.log('  mod001 / mod123 (版主)');
   console.log('  user001 / user123 (普通用户)');
   console.log('  user002 / user123 (普通用户)');
-  await db.sequelize.close();
+  if (close) await db.sequelize.close();
 }
 
-run().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+module.exports = { run };
+
+if (require.main === module) {
+  run().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

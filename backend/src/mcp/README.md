@@ -64,8 +64,13 @@ node src/mcp/index.js --http
 
 | 端点 | 方法 | 用途 |
 | --- | --- | --- |
-| `/tools` | GET | 列出所有工具（供 curl/调试用） |
-| `/` | POST | JSON-RPC 2.0 标准入口 |
+| `/mcp/tools` | GET | 列出所有工具（供 curl/调试用） |
+| `/mcp` | POST | JSON-RPC 2.0 标准入口 |
+
+可选安全配置：
+
+- `PUBLIC_BASE_URL`：控制 MCP 工具返回的帖子链接，例如 `https://community.example.com`
+- `MCP_API_KEY`：留空表示公开演示；填写后请求需携带 `Authorization: Bearer <key>` 或 `x-mcp-api-key: <key>`
 
 ### 生产部署（docker-compose.prod.yml）
 
@@ -109,6 +114,7 @@ curl -X POST http://124.222.8.86/mcp \
 - `ask_community` 工具会消耗用户的 AI 配额（与 Web 端共享）
 - stdio 模式仅本地 IDE 可访问，不暴露网络端口
 - HTTP 模式生产部署时通过 nginx 反代 `/mcp` 路径，3001 端口不绑定主机
+- HTTP 模式可通过 `MCP_API_KEY` 开启轻量鉴权，避免公网端点被随意调用
 - `autoApprove` 里没有 `ask_community`（它会调 LLM），需要人工确认
 
 ## 演示脚本

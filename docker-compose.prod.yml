@@ -65,6 +65,8 @@ services:
 
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost}
+
       UPLOAD_DIR: /app/uploads
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
 
@@ -78,6 +80,11 @@ services:
 
       CAS_SERVER_URL: ${CAS_SERVER_URL:-}
       CAS_SERVICE_URL: ${CAS_SERVICE_URL:-}
+      CAS_ATTR_EMP_NO: ${CAS_ATTR_EMP_NO:-empNo,employeeNumber,uid,user}
+      CAS_ATTR_NAME: ${CAS_ATTR_NAME:-name,displayName,cn}
+      CAS_ATTR_EMAIL: ${CAS_ATTR_EMAIL:-email,mail}
+      CAS_ATTR_DEPARTMENT: ${CAS_ATTR_DEPARTMENT:-department,departmentName,dept}
+      CAS_ATTR_AVATAR: ${CAS_ATTR_AVATAR:-avatar,picture}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://124.222.8.86}
     volumes:
       - uploads-data:/app/uploads
@@ -129,6 +136,8 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
       JWT_SECRET: ${JWT_SECRET}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost}
+      MCP_API_KEY: ${MCP_API_KEY:-}
 
       AI_PROVIDER: ${AI_PROVIDER:-local}
       AI_API_KEY: ${AI_API_KEY:-}

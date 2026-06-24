@@ -1,7 +1,8 @@
 import http from './http.js';
 
 export const authApi = {
-  loginUrl: () => http.get('/auth/cas/login-url'),
+  loginUrl: (service) => http.get('/auth/cas/login-url', { params: service ? { service } : {} }),
+  casCallback: (ticket, service) => http.get('/auth/cas/callback', { params: service ? { ticket, service } : { ticket } }),
   login: (empNo, password) => http.post('/auth/login', { empNo, password }),
   me: () => http.get('/auth/me'),
   logout: () => http.post('/auth/logout'),

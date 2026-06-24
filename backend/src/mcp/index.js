@@ -24,6 +24,7 @@
 
 const readline = require('readline');
 const path = require('path');
+const crypto = require('crypto');
 
 // 在 MCP 进程中加载 .env 配置
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
@@ -41,6 +42,33 @@ async function bootstrap() {
   await models.sequelize.authenticate();
   await models.sequelize.sync();
   await cache.init();
+}
+
+function publicUrl(pathname) {
+  const base = (config?.publicBaseUrl || process.env.PUBLIC_BASE_URL || 'http://localhost').replace(/\/+$/, '');
+  return `${base}${pathname}`;
+}
+
+function isAuthorized(req) {
+  const apiKey = config?.mcp?.apiKey || process.env.MCP_API_KEY || '';
+  if (!apiKey) return true;
+  const auth = req.headers.authorization || '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  const headerKey = req.headers['x-mcp-api-key'] || '';
+  return safeEqual(bearer, apiKey) || safeEqual(headerKey, apiKey);
+}
+
+function safeEqual(input, expected) {
+  if (typeof input !== 'string' || typeof expected !== 'string') return false;
+  const inputBytes = Buffer.from(input);
+  const expectedBytes = Buffer.from(expected);
+  if (inputBytes.length !== expectedBytes.length) return false;
+  return crypto.timingSafeEqual(inputBytes, expectedBytes);
+}
+
+function writeJson(res, status, payload) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(payload));
 }
 
 // ---- Tool Definitions ----
@@ -220,7 +248,7 @@ function formatToolOutput(name, result) {
         text += `   互动: 👍 ${p.likeCount} 点赞 | 💬 ${p.commentCount} 评论\n`;
         text += `   标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
         text += `   摘要: ${p.summary || '无'}\n`;
-        text += `   详情链接: http://124.222.8.86/posts/${p.id}\n`;
+        text += `   详情链接: ${publicUrl(`/posts/${p.id}`)}\n`;
         text += `--------------------------------------------------\n`;
       });
       return text.trim();
@@ -246,7 +274,7 @@ function formatToolOutput(name, result) {
       if (citations && citations.length > 0) {
         text += `引用文献/帖子:\n`;
         citations.forEach((c) => {
-          text += `  - 【${c.title}】 (http://124.222.8.86/posts/${c.id})\n`;
+          text += `  - 【${c.title}】 (${publicUrl(`/posts/${c.id}`)})\n`;
         });
       } else {
         text += `没有直接引用的站内帖子。\n`;
@@ -265,7 +293,7 @@ function formatToolOutput(name, result) {
         text += `   互动: 👍 ${p.likeCount} 点赞\n`;
         text += `   标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
         text += `   摘要: ${p.summary || '无'}\n`;
-        text += `   详情链接: http://124.222.8.86/posts/${p.id}\n`;
+        text += `   详情链接: ${publicUrl(`/posts/${p.id}`)}\n`;
         text += `--------------------------------------------------\n`;
       });
       return text.trim();
@@ -356,7 +384,7 @@ if (MODE === 'http') {
   //   GET  /mcp/tools — 快捷查看工具列表（便于调试）
   //
   // 外部 AI 配置示例（mcp.json）：
-  //   { "mcpServers": { "community": { "url": "http://124.222.8.86:3001/mcp" } } }
+  //   { "mcpServers": { "community": { "url": "https://community.example.com/mcp" } } }
   // ============================================================
   const http = require('http');
 
@@ -364,13 +392,17 @@ if (MODE === 'http') {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-mcp-api-key');
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+    if (!isAuthorized(req)) {
+      writeJson(res, 401, { error: 'Unauthorized MCP request' });
+      return;
+    }
 
     // GET /mcp/tools — 便捷调试
     if (req.method === 'GET' && req.url === '/mcp/tools') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ tools: TOOLS }, null, 2));
+      writeJson(res, 200, { tools: TOOLS });
       return;
     }
 
@@ -381,8 +413,7 @@ if (MODE === 'http') {
       req.on('end', async () => {
         let msg;
         try { msg = JSON.parse(body); } catch {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          writeJson(res, 400, { error: 'Invalid JSON' });
           return;
         }
 
@@ -415,8 +446,7 @@ if (MODE === 'http') {
           response = { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify(response));
+        writeJson(res, 200, response);
       });
       return;
     }

@@ -15,7 +15,7 @@ export default function LoginPage() {
   const loc = useLocation();
 
   useEffect(() => {
-    authApi.loginUrl().then(setCasInfo).catch(() => {});
+    authApi.loginUrl(`${window.location.origin}/login/cas-callback`).then(setCasInfo).catch(() => {});
   }, []);
 
   const onFinish = async (values) => {
@@ -49,29 +49,33 @@ export default function LoginPage() {
           </Button>
         )}
 
-        <Form layout="vertical" onFinish={onFinish}>
-          <Form.Item label="工号" name="empNo" rules={[{ required: true, message: '请输入工号' }]}>
-            <Input placeholder="例如: admin" />
-          </Form.Item>
-          <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}>
-            <Input.Password placeholder="例如: admin123" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block loading={loading}>登录</Button>
-        </Form>
+        {casInfo.mock && (
+          <Form layout="vertical" onFinish={onFinish}>
+            <Form.Item label="工号" name="empNo" rules={[{ required: true, message: '请输入工号' }]}>
+              <Input placeholder="例如: admin" />
+            </Form.Item>
+            <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}>
+              <Input.Password placeholder="例如: admin123" />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" block loading={loading}>登录</Button>
+          </Form>
+        )}
 
-        <Alert
-          showIcon
-          style={{ marginTop: 16 }}
-          type="info"
-          message="演示账号"
-          description={(
-            <div>
-              <div>admin / admin123 （超级管理员）</div>
-              <div>mod001 / mod123 （版主）</div>
-              <div>user001 / user123 （普通用户）</div>
-            </div>
-          )}
-        />
+        {casInfo.mock && (
+          <Alert
+            showIcon
+            style={{ marginTop: 16 }}
+            type="info"
+            message="演示账号"
+            description={(
+              <div>
+                <div>admin / admin123 （超级管理员）</div>
+                <div>mod001 / mod123 （版主）</div>
+                <div>user001 / user123 （普通用户）</div>
+              </div>
+            )}
+          />
+        )}
       </Card>
     </div>
   );
