@@ -248,7 +248,7 @@ function formatToolOutput(name, result) {
         text += `   互动: 👍 ${p.likeCount} 点赞 | 💬 ${p.commentCount} 评论\n`;
         text += `   标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
         text += `   摘要: ${p.summary || '无'}\n`;
-        text += `   详情链接: ${publicUrl(`/posts/${p.id}`)}\n`;
+        text += `   详情链接: ${publicUrl(`/post/${p.id}`)}\n`;
         text += `--------------------------------------------------\n`;
       });
       return text.trim();
@@ -293,7 +293,7 @@ function formatToolOutput(name, result) {
         text += `   互动: 👍 ${p.likeCount} 点赞\n`;
         text += `   标签: ${p.tags && p.tags.length > 0 ? p.tags.join(', ') : '无'}\n`;
         text += `   摘要: ${p.summary || '无'}\n`;
-        text += `   详情链接: ${publicUrl(`/posts/${p.id}`)}\n`;
+        text += `   详情链接: ${publicUrl(`/post/${p.id}`)}\n`;
         text += `--------------------------------------------------\n`;
       });
       return text.trim();
@@ -421,11 +421,13 @@ if (MODE === 'http') {
         let response;
 
         if (method === 'initialize') {
-          response = { jsonrpc: '2.0', id, result: {
-            protocolVersion: '2024-11-05',
-            capabilities: { tools: {} },
-            serverInfo: { name: 'community-platform-mcp', version: '1.0.0' },
-          }};
+          response = {
+            jsonrpc: '2.0', id, result: {
+              protocolVersion: '2024-11-05',
+              capabilities: { tools: {} },
+              serverInfo: { name: 'community-platform-mcp', version: '1.0.0' },
+            }
+          };
         } else if (method === 'tools/list') {
           response = { jsonrpc: '2.0', id, result: { tools: TOOLS } };
         } else if (method === 'tools/call') {
@@ -433,14 +435,18 @@ if (MODE === 'http') {
           const toolArgs = params?.arguments || {};
           try {
             const result = await executeTool(toolName, toolArgs);
-            response = { jsonrpc: '2.0', id, result: {
-              content: [{ type: 'text', text: formatToolOutput(toolName, result) }],
-            }};
+            response = {
+              jsonrpc: '2.0', id, result: {
+                content: [{ type: 'text', text: formatToolOutput(toolName, result) }],
+              }
+            };
           } catch (e) {
-            response = { jsonrpc: '2.0', id, result: {
-              content: [{ type: 'text', text: `Error: ${e.message}` }],
-              isError: true,
-            }};
+            response = {
+              jsonrpc: '2.0', id, result: {
+                content: [{ type: 'text', text: `Error: ${e.message}` }],
+                isError: true,
+              }
+            };
           }
         } else {
           response = { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
