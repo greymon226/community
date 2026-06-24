@@ -16,7 +16,9 @@ const { errorHandler, notFound } = require('./middlewares/error');
 const app = express();
 
 // 默认信任一层反向代理：frontend 容器 Nginx。若前面还有宿主机 Nginx，可设 TRUST_PROXY=2。
-app.set('trust proxy', process.env.TRUST_PROXY || 1);
+// Express 只有拿到 number 类型的 1/2 才会按代理跳数解析，环境变量需要显式转换。
+const trustProxy = process.env.TRUST_PROXY || '1';
+app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
 
