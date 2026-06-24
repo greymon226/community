@@ -21,6 +21,7 @@ ROOT_DIR="$(pwd)"
 ENV_FILE="${ROOT_DIR}/.env.prod"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.prod.yml"
 BACKUP_DIR="${ROOT_DIR}/backups"
+DOCKER_SUDO=()
 
 C_RESET='\033[0m'; C_RED='\033[31m'; C_GREEN='\033[32m'
 C_YELLOW='\033[33m'; C_BLUE='\033[34m'; C_BOLD='\033[1m'
@@ -50,6 +51,21 @@ detect_compose() {
   else
     DC=""
   fi
+}
+
+configure_docker_access() {
+  DOCKER_SUDO=()
+  if docker info >/dev/null 2>&1; then
+    return
+  fi
+  if [[ $EUID -ne 0 ]] && command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; then
+    DOCKER_SUDO=(sudo)
+    warn "当前用户无法直连 Docker daemon，后续 Docker 命令将自动使用 sudo；git pull 仍使用当前用户"
+    return
+  fi
+  err "无法连接 Docker daemon。请将当前用户加入 docker 组，或确认 sudo docker 可用。"
+  err "建议执行: sudo usermod -aG docker $USER && newgrp docker"
+  exit 1
 }
 
 install_docker_if_missing() {
@@ -91,6 +107,8 @@ install_docker_if_missing() {
     fi
     ok "docker 安装完成"
   fi
+
+  configure_docker_access
 
   detect_compose
   if [[ -z "$DC" ]]; then
@@ -189,7 +207,31 @@ EOF
 }
 
 compose() {
-  $DC --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  "${DOCKER_SUDO[@]}" $DC --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+docker_cmd() {
+  "${DOCKER_SUDO[@]}" docker "$@"
+}
+
+run_git_pull() {
+  local output
+  set +e
+  output="$("$@" 2>&1)"
+  local status=$?
+  set -e
+
+  if [[ -n "$output" ]]; then
+    printf '%s\n' "$output"
+  fi
+
+  if [[ $status -ne 0 && "$output" == *"Permission denied (publickey)"* ]]; then
+    err "GitHub SSH 鉴权失败：当前服务器用户没有 git@github.com 的 publickey 权限"
+    err "请配置该用户的 SSH deploy key，或将 git remote 改为 HTTPS 后再执行 update"
+    return 128
+  fi
+
+  return "$status"
 }
 
 pull_latest_code() {
@@ -201,20 +243,27 @@ pull_latest_code() {
   local mode="${DEPLOY_GIT_PULL_MODE:-auto}"
   case "$mode" in
     ff-only)
-      git pull --ff-only
+      run_git_pull git pull --ff-only
       ;;
     rebase)
-      git pull --rebase --autostash
+      run_git_pull git pull --rebase --autostash
       ;;
     merge)
-      GIT_MERGE_AUTOEDIT=no git pull
+      GIT_MERGE_AUTOEDIT=no run_git_pull git pull
       ;;
     auto)
-      if git pull --ff-only; then
+      set +e
+      run_git_pull git pull --ff-only
+      local pull_status=$?
+      set -e
+      if [[ $pull_status -eq 0 ]]; then
         return 0
       fi
+      if [[ $pull_status -eq 128 ]]; then
+        return 1
+      fi
       warn "fast-forward 拉取失败，尝试按本机 git pull 配置继续拉取"
-      GIT_MERGE_AUTOEDIT=no git pull
+      GIT_MERGE_AUTOEDIT=no run_git_pull git pull
       ;;
     *)
       err "未知 DEPLOY_GIT_PULL_MODE: $mode，可选 auto|ff-only|rebase|merge"
@@ -290,7 +339,7 @@ cmd_backup() {
   ok "数据库已备份到 ${BACKUP_DIR}/db-${ts}.sql.gz"
 
   section "备份 uploads"
-  docker run --rm \
+  docker_cmd run --rm \
     -v community_uploads-data:/data:ro \
     -v "${BACKUP_DIR}:/backup" \
     alpine sh -c "tar czf /backup/uploads-${ts}.tar.gz -C /data ." \
