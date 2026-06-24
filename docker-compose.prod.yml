@@ -53,6 +53,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
 

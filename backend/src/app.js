@@ -15,6 +15,9 @@ const { errorHandler, notFound } = require('./middlewares/error');
 
 const app = express();
 
+// 默认信任一层反向代理：frontend 容器 Nginx。若前面还有宿主机 Nginx，可设 TRUST_PROXY=2。
+app.set('trust proxy', process.env.TRUST_PROXY || 1);
+
 app.use(helmet({ crossOriginResourcePolicy: false }));
 
 // CORS：生产环境限制为前端域名，开发环境放通
