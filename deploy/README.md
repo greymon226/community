@@ -46,6 +46,7 @@ bash deploy/deploy.sh
 bash deploy/deploy.sh up        # 构建 + 启动
 bash deploy/deploy.sh update    # git pull + 重建（更新代码后用）
 bash deploy/deploy.sh status    # 查看容器状态与健康检查
+bash deploy/deploy.sh doctor    # 部署自检（Git / Docker / env / 健康端点）
 bash deploy/deploy.sh logs      # tail 所有容器日志
 bash deploy/deploy.sh seed      # 重新灌入种子（幂等，跳过已存在数据）
 bash deploy/deploy.sh backup    # 备份 MySQL + uploads 到 ./backups/
