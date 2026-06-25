@@ -203,6 +203,10 @@ CAS_ATTR_AVATAR=avatar,picture
 ENABLE_CASDOOR=1
 CASDOOR_HTTP_PORT=8000
 CASDOOR_PUBLIC_BASE_URL=http://${DOMAIN}:8000
+CASDOOR_IMAGE=community-casdoor:masked-login-error
+CASDOOR_BASE_IMAGE=casbin/casdoor:latest
+CASDOOR_REPOSITORY=https://github.com/casdoor/casdoor.git
+CASDOOR_REF=master
 CASDOOR_DB_ROOT_PASSWORD=$(random_password)
 CASDOOR_DB_PASSWORD=$(random_password)
 CASDOOR_ORGANIZATION=built-in
@@ -273,6 +277,10 @@ ensure_casdoor_runtime() {
     return 0
   fi
   ensure_env_value CASDOOR_HTTP_PORT "8000"
+  ensure_env_value CASDOOR_IMAGE "community-casdoor:masked-login-error"
+  ensure_env_value CASDOOR_BASE_IMAGE "casbin/casdoor:latest"
+  ensure_env_value CASDOOR_REPOSITORY "https://github.com/casdoor/casdoor.git"
+  ensure_env_value CASDOOR_REF "master"
   ensure_env_value CASDOOR_DB_ROOT_PASSWORD "$(random_password)"
   ensure_env_value CASDOOR_DB_PASSWORD "$(random_password)"
   ensure_env_value CASDOOR_ORGANIZATION "built-in"

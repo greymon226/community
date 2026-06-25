@@ -66,6 +66,21 @@ CAS_SERVICE_URL=http://你的域名/login/cas-callback
 
 因此前端登录页会同时保留账号密码登录，并额外显示 `CAS 登录`。
 
+部署脚本会构建一个项目内 Casdoor 镜像，功能与官方镜像一致，仅把登录失败中的“用户不存在 / 密码错误”等细节统一显示为：
+
+```text
+账号或密码错误
+```
+
+这样外部用户无法从登录页判断某个账号是否存在。镜像相关参数可在 `.env.prod` 中调整：
+
+```env
+CASDOOR_IMAGE=community-casdoor:masked-login-error
+CASDOOR_BASE_IMAGE=casbin/casdoor:latest
+CASDOOR_REPOSITORY=https://github.com/casdoor/casdoor.git
+CASDOOR_REF=master
+```
+
 ## 常用命令
 
 ```bash
