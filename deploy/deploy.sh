@@ -201,7 +201,6 @@ CAS_ATTR_DEPARTMENT=department,departmentName,dept
 CAS_ATTR_AVATAR=avatar,picture
 
 ENABLE_CASDOOR=1
-COMPOSE_PROFILES=casdoor
 CASDOOR_HTTP_PORT=8000
 CASDOOR_PUBLIC_BASE_URL=http://${DOMAIN}:8000
 CASDOOR_DB_ROOT_PASSWORD=$(random_password)
@@ -273,7 +272,6 @@ ensure_casdoor_runtime() {
   if [[ "$(env_value ENABLE_CASDOOR || true)" == "0" ]]; then
     return 0
   fi
-  ensure_env_value COMPOSE_PROFILES "casdoor"
   ensure_env_value CASDOOR_HTTP_PORT "8000"
   ensure_env_value CASDOOR_DB_ROOT_PASSWORD "$(random_password)"
   ensure_env_value CASDOOR_DB_PASSWORD "$(random_password)"
@@ -325,6 +323,7 @@ isDemoMode = false
 showGithubCorner = false
 defaultLanguage = "zh"
 initDataNewOnly = false
+initDataFile = "./init_data.json"
 EOF
   chmod 600 "${CASDOOR_RUNTIME_DIR}/conf/app.conf"
 }
@@ -353,6 +352,12 @@ configure_casdoor_application() {
     fi
     sleep 2
   done
+
+  if ! compose exec -T casdoor-mysql mysql -uroot -p"${root_pwd}" casdoor -Nse "SELECT COUNT(*) FROM application WHERE name='app-built-in';" 2>/dev/null | grep -q '^1$'; then
+    err "Casdoor 初始数据未就绪：未找到 app-built-in。请查看 casdoor 日志，或重建 casdoor-mysql-data 卷后重试。"
+    compose logs --tail=120 casdoor || true
+    return 1
+  fi
 
   compose exec -T casdoor-mysql mysql -uroot -p"${root_pwd}" casdoor <<SQL
 SET @app = '${app}';

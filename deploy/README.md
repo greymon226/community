@@ -189,7 +189,6 @@ curl -X POST http://你的域名/mcp \
 
 ```env
 ENABLE_CASDOOR=1
-COMPOSE_PROFILES=casdoor
 CASDOOR_HTTP_PORT=8000
 CASDOOR_ORGANIZATION=built-in
 CASDOOR_APPLICATION=community
@@ -199,7 +198,6 @@ CASDOOR_APPLICATION=community
 
 ```env
 ENABLE_CASDOOR=0
-COMPOSE_PROFILES=
 CAS_SERVER_URL=https://cas.example.com/cas
 CAS_SERVICE_URL=https://community.example.com/login/cas-callback
 ```

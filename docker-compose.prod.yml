@@ -42,7 +42,6 @@ services:
   casdoor-mysql:
     image: mysql:8.0
     container_name: casdoor-mysql
-    profiles: ["casdoor"]
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${CASDOOR_DB_ROOT_PASSWORD:-casdoor_root_change_me}
@@ -67,7 +66,6 @@ services:
   casdoor:
     image: casbin/casdoor:latest
     container_name: casdoor
-    profiles: ["casdoor"]
     restart: unless-stopped
     depends_on:
       casdoor-mysql:
