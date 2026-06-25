@@ -22,6 +22,7 @@ ROOT_DIR="$(pwd)"
 ENV_FILE="${ROOT_DIR}/.env.prod"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.prod.yml"
 BACKUP_DIR="${ROOT_DIR}/backups"
+CASDOOR_RUNTIME_DIR="${ROOT_DIR}/deploy/runtime/casdoor"
 DOCKER_SUDO=()
 
 C_RESET='\033[0m'; C_RED='\033[31m'; C_GREEN='\033[32m'
@@ -199,6 +200,16 @@ CAS_ATTR_EMAIL=email,mail
 CAS_ATTR_DEPARTMENT=department,departmentName,dept
 CAS_ATTR_AVATAR=avatar,picture
 
+ENABLE_CASDOOR=1
+COMPOSE_PROFILES=casdoor
+CASDOOR_HTTP_PORT=8000
+CASDOOR_PUBLIC_BASE_URL=http://${DOMAIN}:8000
+CASDOOR_DB_ROOT_PASSWORD=$(random_password)
+CASDOOR_DB_PASSWORD=$(random_password)
+CASDOOR_ORGANIZATION=built-in
+CASDOOR_APPLICATION=community
+CASDOOR_CLIENT_SECRET=$(random_secret)
+
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 GITHUB_CALLBACK_URL=http://${DOMAIN}/login/github-callback
@@ -208,6 +219,7 @@ SEED_ADMIN_EMPNO=${ADMIN_NO}
 EOF
 
   chmod 600 "$ENV_FILE"
+  ensure_casdoor_runtime
   ok "已生成 $ENV_FILE（权限 600）"
   warn "其中包含数据库与 JWT 密钥，请妥善保管，不要提交到 git"
 }
@@ -226,6 +238,169 @@ env_value() {
     return 1
   fi
   grep -E "^${key}=" "$ENV_FILE" | tail -n1 | cut -d= -f2-
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp="${ENV_FILE}.tmp"
+  if grep -qE "^${key}=" "$ENV_FILE"; then
+    awk -v k="$key" -v v="$value" 'BEGIN{FS=OFS="="} $1==k {$0=k "=" v} {print}' "$ENV_FILE" > "$tmp"
+    mv "$tmp" "$ENV_FILE"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+  fi
+}
+
+ensure_env_value() {
+  local key="$1"
+  local value="$2"
+  local current
+  current="$(env_value "$key" || true)"
+  if [[ -z "$current" ]]; then
+    set_env_value "$key" "$value"
+  fi
+}
+
+ensure_casdoor_runtime() {
+  [[ -f "$ENV_FILE" ]] || return 0
+
+  local domain casdoor_port casdoor_public casdoor_org casdoor_app casdoor_db_pwd
+  domain="$(env_value PUBLIC_DOMAIN || true)"
+  [[ -z "$domain" ]] && domain="localhost"
+
+  ensure_env_value ENABLE_CASDOOR "1"
+  if [[ "$(env_value ENABLE_CASDOOR || true)" == "0" ]]; then
+    return 0
+  fi
+  ensure_env_value COMPOSE_PROFILES "casdoor"
+  ensure_env_value CASDOOR_HTTP_PORT "8000"
+  ensure_env_value CASDOOR_DB_ROOT_PASSWORD "$(random_password)"
+  ensure_env_value CASDOOR_DB_PASSWORD "$(random_password)"
+  ensure_env_value CASDOOR_ORGANIZATION "built-in"
+  ensure_env_value CASDOOR_APPLICATION "community"
+
+  casdoor_port="$(env_value CASDOOR_HTTP_PORT || true)"
+  casdoor_public="$(env_value CASDOOR_PUBLIC_BASE_URL || true)"
+  if [[ -z "$casdoor_public" ]]; then
+    casdoor_public="http://${domain}:${casdoor_port}"
+    set_env_value CASDOOR_PUBLIC_BASE_URL "$casdoor_public"
+  fi
+
+  casdoor_org="$(env_value CASDOOR_ORGANIZATION || true)"
+  casdoor_app="$(env_value CASDOOR_APPLICATION || true)"
+  ensure_env_value CAS_SERVER_URL "${casdoor_public}/cas/${casdoor_org}/${casdoor_app}"
+  ensure_env_value CAS_SERVICE_URL "http://${domain}/login/cas-callback"
+  ensure_env_value CAS_ATTR_EMP_NO "name,user,id"
+  ensure_env_value CAS_ATTR_NAME "displayName,name,user"
+  ensure_env_value CAS_ATTR_EMAIL "email,mail"
+  ensure_env_value CAS_ATTR_AVATAR "avatar"
+
+  casdoor_db_pwd="$(env_value CASDOOR_DB_PASSWORD || true)"
+  mkdir -p "${CASDOOR_RUNTIME_DIR}/conf"
+  cat > "${CASDOOR_RUNTIME_DIR}/conf/app.conf" <<EOF
+appname = casdoor
+httpport = 8000
+runmode = prod
+copyrequestbody = true
+
+driverName = mysql
+dataSourceName = casdoor:${casdoor_db_pwd}@tcp(casdoor-mysql:3306)/
+dbName = casdoor
+tableNamePrefix =
+showSql = false
+
+redisEndpoint =
+defaultStorageProvider =
+isCloudIntranet = false
+authState = "casdoor"
+
+origin = "${casdoor_public}"
+originFrontend = "${casdoor_public}"
+
+logPostOnly = true
+isUsernameLowered = false
+staticBaseUrl = "https://cdn.casbin.org"
+isDemoMode = false
+showGithubCorner = false
+defaultLanguage = "zh"
+initDataNewOnly = false
+EOF
+  chmod 600 "${CASDOOR_RUNTIME_DIR}/conf/app.conf"
+}
+
+configure_casdoor_application() {
+  local enabled root_pwd org app client_id client_secret callback homepage
+  enabled="$(env_value ENABLE_CASDOOR || true)"
+  [[ "$enabled" == "0" ]] && return 0
+
+  root_pwd="$(env_value CASDOOR_DB_ROOT_PASSWORD || true)"
+  org="$(env_value CASDOOR_ORGANIZATION || true)"
+  app="$(env_value CASDOOR_APPLICATION || true)"
+  client_id="${app}-client"
+  client_secret="$(env_value CASDOOR_CLIENT_SECRET || true)"
+  if [[ -z "$client_secret" ]]; then
+    client_secret="$(random_secret)"
+    set_env_value CASDOOR_CLIENT_SECRET "$client_secret"
+  fi
+  callback="$(env_value CAS_SERVICE_URL || true)"
+  homepage="$(env_value PUBLIC_BASE_URL || true)"
+
+  section "初始化 Casdoor 应用"
+  for _ in $(seq 1 30); do
+    if compose exec -T casdoor-mysql mysql -uroot -p"${root_pwd}" casdoor -Nse "SELECT COUNT(*) FROM application WHERE name='app-built-in';" 2>/dev/null | grep -q '^1$'; then
+      break
+    fi
+    sleep 2
+  done
+
+  compose exec -T casdoor-mysql mysql -uroot -p"${root_pwd}" casdoor <<SQL
+SET @app = '${app}';
+SET @org = '${org}';
+SET @display = 'Community';
+SET @homepage = '${homepage}';
+SET @callback = '${callback}';
+SET @client_id = '${client_id}';
+SET @client_secret = '${client_secret}';
+SET SESSION group_concat_max_len = 1000000;
+DELETE FROM application WHERE name = @app;
+SELECT GROUP_CONCAT(CONCAT('\`', COLUMN_NAME, '\`') ORDER BY ORDINAL_POSITION)
+  INTO @cols
+  FROM INFORMATION_SCHEMA.COLUMNS
+ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'application';
+SELECT GROUP_CONCAT(
+  CASE COLUMN_NAME
+    WHEN 'name' THEN QUOTE(@app)
+    WHEN 'created_time' THEN "DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-%dT%H:%i:%sZ')"
+    WHEN 'display_name' THEN QUOTE(@display)
+    WHEN 'homepage_url' THEN QUOTE(@homepage)
+    WHEN 'description' THEN "'Community CAS application'"
+    WHEN 'organization' THEN QUOTE(@org)
+    WHEN 'client_id' THEN QUOTE(@client_id)
+    WHEN 'client_secret' THEN QUOTE(@client_secret)
+    WHEN 'redirect_uris' THEN QUOTE(CONCAT('["', @callback, '"]'))
+    WHEN 'signin_url' THEN "''"
+    WHEN 'signup_url' THEN "''"
+    WHEN 'forget_url' THEN "''"
+    WHEN 'affiliation_url' THEN "''"
+    WHEN 'forced_redirect_origin' THEN "''"
+    WHEN 'domain' THEN "''"
+    WHEN 'other_domains' THEN "'[]'"
+    WHEN 'is_shared' THEN "0"
+    WHEN 'enable_password' THEN "1"
+    WHEN 'disable_signin' THEN "0"
+    ELSE CONCAT('\`', COLUMN_NAME, '\`')
+  END
+  ORDER BY ORDINAL_POSITION)
+  INTO @vals
+  FROM INFORMATION_SCHEMA.COLUMNS
+ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'application';
+SET @sql = CONCAT('INSERT INTO application (', @cols, ') SELECT ', @vals, ' FROM application WHERE name = ''app-built-in'' LIMIT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SQL
+  ok "Casdoor 应用已配置：${org}/${app}"
 }
 
 run_git_pull() {
@@ -288,10 +463,12 @@ pull_latest_code() {
 
 cmd_up() {
   ensure_env_file
+  ensure_casdoor_runtime
   section "构建并启动服务"
   compose pull || true
   compose build
   compose up -d
+  configure_casdoor_application
   ok "服务已启动"
   cmd_status
   show_access_info
@@ -299,15 +476,18 @@ cmd_up() {
 
 cmd_update() {
   ensure_env_file
+  ensure_casdoor_runtime
   section "拉取最新代码"
   pull_latest_code || { err "git pull 失败，已停止部署，避免使用旧代码继续构建"; exit 1; }
   compose build --pull
   compose up -d
+  configure_casdoor_application
   ok "更新完成"
   cmd_status
 }
 
 cmd_status() {
+  ensure_casdoor_runtime
   section "容器状态"
   compose ps
   section "健康检查"
@@ -320,6 +500,11 @@ cmd_status() {
     ok "后端 /health 正常"
   else
     warn "后端 /health 暂不可达"
+  fi
+  if compose exec -T casdoor wget -qO- http://127.0.0.1:8000 >/dev/null 2>&1; then
+    ok "Casdoor 正常"
+  else
+    warn "Casdoor 暂不可达"
   fi
 }
 
@@ -426,6 +611,17 @@ cmd_doctor() {
     warn "CAS_SERVER_URL 为空，当前为 Mock 登录模式"
   fi
 
+  local casdoor_enabled casdoor_url
+  casdoor_enabled="$(env_value ENABLE_CASDOOR || true)"
+  casdoor_url="$(env_value CASDOOR_PUBLIC_BASE_URL || true)"
+  if [[ "$casdoor_enabled" == "0" ]]; then
+    warn "内置 Casdoor 已关闭"
+  elif [[ -n "$casdoor_url" ]]; then
+    ok "内置 Casdoor：$casdoor_url"
+  else
+    warn "CASDOOR_PUBLIC_BASE_URL 为空"
+  fi
+
   if [[ -n "$mcp_key" ]]; then
     ok "MCP_API_KEY 已配置"
   else
@@ -451,11 +647,13 @@ cmd_doctor() {
 
 cmd_logs() {
   ensure_env_file
+  ensure_casdoor_runtime
   compose logs -f --tail=200
 }
 
 cmd_seed() {
   ensure_env_file
+  ensure_casdoor_runtime
   section "灌入种子数据"
   warn "仅在首次部署执行；重复执行会跳过已存在的用户与分类"
   compose exec backend node seed.js
@@ -469,6 +667,7 @@ cmd_seed() {
 
 cmd_backup() {
   ensure_env_file
+  ensure_casdoor_runtime
   mkdir -p "$BACKUP_DIR"
   ts="$(date +%Y%m%d-%H%M%S)"
   section "备份 MySQL"
@@ -477,6 +676,13 @@ cmd_backup() {
   compose exec -T mysql sh -c "exec mysqldump -uroot -p'${ROOT_PWD}' --single-transaction --quick --routines --triggers ${DB_NAME}" \
     | gzip > "${BACKUP_DIR}/db-${ts}.sql.gz"
   ok "数据库已备份到 ${BACKUP_DIR}/db-${ts}.sql.gz"
+
+  section "备份 Casdoor MySQL"
+  CASDOOR_ROOT_PWD="$(env_value CASDOOR_DB_ROOT_PASSWORD || true)"
+  compose exec -T casdoor-mysql sh -c "exec mysqldump -uroot -p'${CASDOOR_ROOT_PWD}' --single-transaction --quick --routines --triggers casdoor" \
+    | gzip > "${BACKUP_DIR}/casdoor-db-${ts}.sql.gz" \
+    || warn "Casdoor 数据库备份失败，请确认 casdoor-mysql 容器已启动"
+  ok "Casdoor 数据库已备份到 ${BACKUP_DIR}/casdoor-db-${ts}.sql.gz"
 
   section "备份 uploads"
   docker_cmd run --rm \
@@ -491,6 +697,7 @@ cmd_backup() {
 
 cmd_down() {
   ensure_env_file
+  ensure_casdoor_runtime
   warn "停止所有容器（数据卷保留）"
   compose down
   ok "已停止"
@@ -498,6 +705,7 @@ cmd_down() {
 
 cmd_nuke() {
   ensure_env_file
+  ensure_casdoor_runtime
   warn "本操作会删除所有容器和数据卷（数据库、Redis 持久化、上传文件全部丢失）"
   read -r -p "确认请输入 yes： " ans
   [[ "$ans" == "yes" ]] || { log "已取消"; exit 0; }
@@ -516,6 +724,7 @@ show_access_info() {
   fi
   section "访问入口"
   log "  Web 站点：http://${domain}${port_suffix}/"
+  log "  Casdoor：http://${domain}:$(env_value CASDOOR_HTTP_PORT || echo 8000)/"
   log "  MCP API ：http://${domain}${port_suffix}/mcp           (POST JSON-RPC)"
   log "  MCP 工具：http://${domain}${port_suffix}/mcp/tools     (GET 调试用)"
   log "  管理后台：登录后访问 / 中的管理入口"

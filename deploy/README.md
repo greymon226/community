@@ -7,8 +7,10 @@
 - `mcp` 容器：MCP HTTP Server（外部 AI 调用社区能力的入口）
 - `mysql` 容器：MySQL 8（仅在 docker 内网可访问）
 - `redis` 容器：Redis 7（带密码，仅在 docker 内网可访问）
+- `casdoor` 容器：内置真实 CAS Server（默认对外 8000 端口）
+- `casdoor-mysql` 容器：Casdoor 独立 MySQL
 
-数据通过 docker volume 持久化（`mysql-data` / `redis-data` / `uploads-data`）。
+数据通过 docker volume 持久化（`mysql-data` / `redis-data` / `uploads-data` / `casdoor-mysql-data`）。
 
 ## 适用环境
 
@@ -35,10 +37,34 @@ bash deploy/deploy.sh
 1. 检查 / 安装 Docker 与 Docker Compose
 2. 询问域名、HTTP 端口、DeepSeek API Key
 3. 生成 `.env.prod`，里面 MySQL 密码 / Redis 密码 / JWT_SECRET 全部用 `openssl rand` 生成强随机串
-4. 构建 frontend / backend 镜像并启动 4 个容器
-5. 灌入种子数据（默认账号 `admin / admin123`，登录后请立即改密码）
+4. 生成 `deploy/runtime/casdoor/conf/app.conf`，启动内置 Casdoor，并自动创建 `built-in/community` 应用
+5. 构建 frontend / backend 镜像并启动全部容器
+6. 灌入种子数据（默认账号 `admin / admin123`，登录后请立即改密码）
 
 完成后访问 `http://你的域名/` 即可。
+
+Casdoor 默认访问入口：
+
+```text
+http://你的域名:8000/
+```
+
+Casdoor 首次默认管理员：
+
+```text
+组织：built-in
+用户：admin
+密码：123
+```
+
+登录后请立即修改 Casdoor 管理员密码。社区后端会自动配置：
+
+```env
+CAS_SERVER_URL=http://你的域名:8000/cas/built-in/community
+CAS_SERVICE_URL=http://你的域名/login/cas-callback
+```
+
+因此前端登录页会同时保留账号密码登录，并额外显示 `CAS 登录`。
 
 ## 常用命令
 
@@ -100,7 +126,8 @@ sudo certbot --nginx -d community.example.com
 ## 安全清单
 
 - [ ] `.env.prod` 权限 600，**不要**提交到 git（已加入根 `.gitignore`）
-- [ ] 防火墙只放 22 / 80 / 443，关闭 3306 / 6379 / 4000 / 8080
+- [ ] 防火墙只放 22 / 80 / 443；若未给 Casdoor 配 HTTPS 反代，需要额外开放 `CASDOOR_HTTP_PORT`（默认 8000）
+- [ ] Casdoor 默认管理员 `built-in/admin / 123` 登录后立即修改密码
 - [ ] 登录默认账号后立即修改 `admin / mod001 / user001` 的密码
 - [ ] 后台 → 系统设置：根据 DeepSeek 实际计费配额调整每日 AI 调用上限
 - [ ] 接入 HTTPS（见上）
@@ -155,6 +182,43 @@ curl -X POST http://你的域名/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_posts","arguments":{"keyword":"React"}}}'
 ```
+
+## Casdoor / CAS 登录
+
+一键部署默认启用内置 Casdoor：
+
+```env
+ENABLE_CASDOOR=1
+COMPOSE_PROFILES=casdoor
+CASDOOR_HTTP_PORT=8000
+CASDOOR_ORGANIZATION=built-in
+CASDOOR_APPLICATION=community
+```
+
+如果你有独立企业 CAS，不想部署 Casdoor，可以改 `.env.prod`：
+
+```env
+ENABLE_CASDOOR=0
+COMPOSE_PROFILES=
+CAS_SERVER_URL=https://cas.example.com/cas
+CAS_SERVICE_URL=https://community.example.com/login/cas-callback
+```
+
+然后执行：
+
+```bash
+bash deploy/deploy.sh up
+```
+
+如果给 Casdoor 单独配置了域名和 HTTPS，例如 `https://auth.example.com`，则改：
+
+```env
+CASDOOR_PUBLIC_BASE_URL=https://auth.example.com
+CAS_SERVER_URL=https://auth.example.com/cas/built-in/community
+CAS_SERVICE_URL=https://community.example.com/login/cas-callback
+```
+
+并在宿主机 Nginx 中把 `auth.example.com` 反代到 `127.0.0.1:8000`。
 
 ## 常见问题
 

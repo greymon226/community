@@ -17,9 +17,8 @@ async function loginUrl(req, res) {
   });
 }
 
-// POST /auth/login  Mock 模式：本地账号密码登录
+// POST /auth/login  本地账号密码登录（CAS/GitHub 开启时也保留）
 async function localLogin(req, res) {
-  if (!config.cas.mock) return fail(res, '当前已启用 CAS 登录', 403, 403);
   const { empNo, password } = req.body || {};
   if (!empNo || !password) return fail(res, '工号与密码不能为空');
   const user = await cas.verifyLocalPassword(empNo, password);

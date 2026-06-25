@@ -52,7 +52,7 @@
 | 前端 | React 18 + Vite + Ant Design + Zustand + React Router |
 | 缓存 | Redis（未配置时自动降级为内存 Map）|
 | AI | DeepSeek（OpenAI 兼容协议）；调用失败自动降级到本地规则 |
-| 认证 | CAS 单点登录（Mock 模式可本地账号密码登录）|
+| 认证 | CAS 单点登录 / GitHub OAuth（Mock 模式可本地账号密码登录）|
 | 测试 | Node `--test` runner + fast-check（PBT）|
 | 部署 | Docker Compose（生产）+ nginx 反代（统一 80 端口分流）|
 
@@ -124,6 +124,64 @@ CAS_SERVICE_URL=https://community.example.com/login/cas-callback
 ```
 
 如果企业 CAS 返回的属性名不同，可用 `CAS_ATTR_EMP_NO`、`CAS_ATTR_NAME`、`CAS_ATTR_EMAIL`、`CAS_ATTR_DEPARTMENT`、`CAS_ATTR_AVATAR` 配置逗号分隔的候选字段。工号默认会依次读取 `empNo,employeeNumber,uid,user`。
+
+#### 本地真实 CAS 演示（Apereo CAS）
+
+没有企业 CAS 时，可以用 Apereo CAS 自建一个真实 `ticket -> serviceValidate -> JWT` 流程：
+
+1. 打开 [CAS Initializr](https://getcas.apereo.org/ui) 生成 CAS Overlay 项目，选择 Docker 支持，并加入 JSON Service Registry。
+2. 在 CAS Overlay 项目中创建 `etc/cas/config/cas.properties`：
+
+```properties
+cas.server.name=http://localhost:8080
+cas.server.prefix=${cas.server.name}/cas
+
+cas.authn.accept.users=casuser::Mellon,admin::admin123,user001::user123
+
+cas.service-registry.json.location=file:/etc/cas/services
+cas.service-registry.json.watcher-enabled=true
+```
+
+3. 创建 `etc/cas/services/community-10000001.json`，把社区前端回调注册为允许接入的服务：
+
+```json
+{
+  "@class": "org.apereo.cas.services.RegexRegisteredService",
+  "serviceId": "^http://localhost:5173/login/cas-callback.*",
+  "name": "community-local",
+  "id": 10000001,
+  "evaluationOrder": 1
+}
+```
+
+4. 启动 CAS Overlay：
+
+```bash
+docker compose up --build
+```
+
+5. 修改 `backend/.env` 后重启后端：
+
+```env
+CAS_SERVER_URL=http://localhost:8080/cas
+CAS_SERVICE_URL=http://localhost:5173/login/cas-callback
+CAS_ATTR_EMP_NO=user
+CAS_ATTR_NAME=user
+```
+
+前端登录页会显示 CAS 登录按钮；如果同时配置了 GitHub OAuth，CAS 和 GitHub 会并排展示。Apereo CAS 默认测试账号可用 `casuser / Mellon`，也可以用上面配置的 `admin / admin123`、`user001 / user123`。
+
+### GitHub OAuth 登录
+
+在 GitHub 创建 OAuth App 后配置：
+
+```env
+GITHUB_CLIENT_ID=your_client_id
+GITHUB_CLIENT_SECRET=your_client_secret
+GITHUB_CALLBACK_URL=http://localhost:5173/login/github-callback
+```
+
+本地 OAuth App 的 Homepage URL 填 `http://localhost:5173`，Authorization callback URL 填 `http://localhost:5173/login/github-callback`。未配置 GitHub 时按钮会自动隐藏。
 
 ---
 

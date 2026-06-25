@@ -39,6 +39,49 @@ services:
       timeout: 3s
       retries: 5
 
+  casdoor-mysql:
+    image: mysql:8.0
+    container_name: casdoor-mysql
+    profiles: ["casdoor"]
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CASDOOR_DB_ROOT_PASSWORD:-casdoor_root_change_me}
+      MYSQL_DATABASE: casdoor
+      MYSQL_USER: casdoor
+      MYSQL_PASSWORD: ${CASDOOR_DB_PASSWORD:-casdoor_change_me}
+      TZ: Asia/Shanghai
+    command:
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    volumes:
+      - casdoor-mysql-data:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${CASDOOR_DB_ROOT_PASSWORD:-casdoor_root_change_me}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  casdoor:
+    image: casbin/casdoor:latest
+    container_name: casdoor
+    profiles: ["casdoor"]
+    restart: unless-stopped
+    depends_on:
+      casdoor-mysql:
+        condition: service_healthy
+    ports:
+      - "${CASDOOR_HTTP_PORT:-8000}:8000"
+    environment:
+      GIN_MODE: release
+    volumes:
+      - ./deploy/runtime/casdoor/conf:/conf
+      - casdoor-logs-data:/logs
+    networks:
+      - internal
+
   backend:
     build:
       context: ./backend
@@ -159,4 +202,6 @@ networks:
 volumes:
   mysql-data:
   redis-data:
+  casdoor-mysql-data:
+  casdoor-logs-data:
   uploads-data:
