@@ -64,14 +64,7 @@ services:
       retries: 10
 
   casdoor:
-    build:
-      context: ./deploy/casdoor
-      dockerfile: Dockerfile
-      args:
-        CASDOOR_BASE_IMAGE: ${CASDOOR_BASE_IMAGE:-casbin/casdoor:latest}
-        CASDOOR_REPOSITORY: ${CASDOOR_REPOSITORY:-https://github.com/casdoor/casdoor.git}
-        CASDOOR_REF: ${CASDOOR_REF:-master}
-    image: ${CASDOOR_IMAGE:-community-casdoor:masked-login-error}
+    image: casbin/casdoor:latest
     container_name: casdoor
     restart: unless-stopped
     depends_on:
