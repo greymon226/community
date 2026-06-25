@@ -10,6 +10,7 @@ const PostDetailPage = lazy(() => import('./pages/PostDetailPage.jsx'));
 const PostEditPage = lazy(() => import('./pages/PostEditPage.jsx'));
 const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
 const CasCallbackPage = lazy(() => import('./pages/CasCallbackPage.jsx'));
+const GithubCallbackPage = lazy(() => import('./pages/GithubCallbackPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const MyCenterPage = lazy(() => import('./pages/MyCenterPage.jsx'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage.jsx'));
@@ -129,6 +130,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/login/cas-callback" element={<CasCallbackPage />} />
+            <Route path="/login/github-callback" element={<GithubCallbackPage />} />
             <Route path="/post/new" element={<PostEditPage />} />
             <Route path="/post/edit/:id" element={<PostEditPage />} />
             <Route path="/post/:id" element={<PostDetailPage />} />

@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const { User, Post, Comment, Favorite } = require('../models');
 const { ok, fail } = require('../utils/response');
 const { cleanPlainText } = require('../utils/sanitize');
+const { writeAudit } = require('../middlewares/audit');
 
 // Pure helper extracted from `updateMe` so it can be exercised by
 // `tests/property/P07-techtags-normalization.test.js` without booting
@@ -79,6 +80,20 @@ async function updateMe(req, res) {
   if (avatar !== undefined) u.avatar = String(avatar).slice(0, 255);
   if (emailNotify !== undefined) u.emailNotify = !!emailNotify;
   await u.save();
+
+  await writeAudit(req, {
+    action: 'user.update_profile',
+    targetType: 'user',
+    targetId: u.id,
+    detail: {
+      nickname: nickname !== undefined ? u.nickname : undefined,
+      bio: bio !== undefined ? u.bio : undefined,
+      techTags: techTags !== undefined ? u.techTags : undefined,
+      avatar: avatar !== undefined ? u.avatar : undefined,
+      emailNotify: emailNotify !== undefined ? u.emailNotify : undefined,
+    }
+  });
+
   return ok(res, u);
 }
 

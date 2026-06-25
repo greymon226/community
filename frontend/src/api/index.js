@@ -6,6 +6,8 @@ export const authApi = {
   login: (empNo, password) => http.post('/auth/login', { empNo, password }),
   me: () => http.get('/auth/me'),
   logout: () => http.post('/auth/logout'),
+  githubLoginUrl: (state) => http.get('/auth/github/login-url', { params: { state } }),
+  githubCallback: (code) => http.get('/auth/github/callback', { params: { code } }),
 };
 
 export const userApi = {

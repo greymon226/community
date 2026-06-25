@@ -35,6 +35,8 @@ async function listUsers(req, res) {
       { name: { [Op.like]: `%${keyword}%` } },
       { empNo: { [Op.like]: `%${keyword}%` } },
       { department: { [Op.like]: `%${keyword}%` } },
+      { nickname: { [Op.like]: `%${keyword}%` } },
+      { githubUsername: { [Op.like]: `%${keyword}%` } },
     ];
   }
   const offset = (page - 1) * pageSize;

@@ -21,6 +21,9 @@ module.exports = (sequelize, DataTypes) =>
       moderatorCategoryIds: { type: DataTypes.STRING(500), defaultValue: '[]' },
       // 邮件通知开关
       emailNotify: { type: DataTypes.BOOLEAN, defaultValue: false },
+      // GitHub OAuth 登录
+      githubId: { type: DataTypes.STRING(64), unique: true, allowNull: true },
+      githubUsername: { type: DataTypes.STRING(128), allowNull: true },
       // 仅本地 mock 登录使用
       passwordHash: { type: DataTypes.STRING(255) },
       lastLoginAt: { type: DataTypes.DATE },

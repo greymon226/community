@@ -55,6 +55,13 @@ const config = {
     .map((w) => w.trim())
     .filter(Boolean),
 
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID || '',
+    clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+    // 前端 GitHub 回调页面完整地址，用于构建 OAuth 授权 URL 的 redirect_uri
+    callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5173/login/github-callback',
+  },
+
   ai: {
     provider: process.env.AI_PROVIDER || 'local', // local | deepseek | openai
     apiKey: process.env.AI_API_KEY || '',

@@ -176,6 +176,7 @@ MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PWD}
 DB_NAME=community
 DB_USER=community
 DB_PASS=${DB_PWD}
+DB_SYNC_ALTER=
 
 REDIS_PASSWORD=${REDIS_PWD}
 
@@ -197,6 +198,10 @@ CAS_ATTR_NAME=name,displayName,cn
 CAS_ATTR_EMAIL=email,mail
 CAS_ATTR_DEPARTMENT=department,departmentName,dept
 CAS_ATTR_AVATAR=avatar,picture
+
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://${DOMAIN}/login/github-callback
 
 # 部署时记录的初始管理员工号
 SEED_ADMIN_EMPNO=${ADMIN_NO}

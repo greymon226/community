@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, Alert, Typography, App } from 'antd';
+import { Card, Form, Input, Button, Alert, Typography, App, Divider } from 'antd';
+import { GithubOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../api';
 import { useAuthStore } from '../store/auth.js';
@@ -8,6 +9,7 @@ const { Title, Paragraph } = Typography;
 
 export default function LoginPage() {
   const [casInfo, setCasInfo] = useState({ mock: true, url: '' });
+  const [githubUrl, setGithubUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuthStore();
   const { message } = App.useApp();
@@ -16,6 +18,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     authApi.loginUrl(`${window.location.origin}/login/cas-callback`).then(setCasInfo).catch(() => {});
+    // 生成随机 state 并保存到 sessionStorage
+    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    sessionStorage.setItem('github_oauth_state', state);
+    authApi.githubLoginUrl(state).then(({ enabled, url }) => {
+      if (enabled && url) setGithubUrl(url);
+      else sessionStorage.removeItem('github_oauth_state');
+    }).catch(() => {});
   }, []);
 
   const onFinish = async (values) => {
@@ -75,6 +84,28 @@ export default function LoginPage() {
               </div>
             )}
           />
+        )}
+
+        {githubUrl && (
+          <>
+            <Divider plain style={{ marginTop: 20 }}>或</Divider>
+            <Button
+              id="btn-github-login"
+              block
+              size="large"
+              icon={<GithubOutlined />}
+              onClick={() => { window.location.href = githubUrl; }}
+              style={{
+                background: '#24292e',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                fontWeight: 500,
+              }}
+            >
+              使用 GitHub 登录
+            </Button>
+          </>
         )}
       </Card>
     </div>

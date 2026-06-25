@@ -22,6 +22,8 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 router.get('/auth/cas/login-url', wrap(auth.loginUrl));
 router.post('/auth/login', wrap(auth.localLogin)); // mock 登录
 router.get('/auth/cas/callback', wrap(auth.casCallback));
+router.get('/auth/github/login-url', wrap(auth.githubLoginUrl));
+router.get('/auth/github/callback', wrap(auth.githubCallback));
 router.get('/auth/me', authRequired, wrap(auth.me));
 router.post('/auth/logout', authRequired, wrap(auth.logout));
 

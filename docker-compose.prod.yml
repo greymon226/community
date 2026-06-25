@@ -63,6 +63,7 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
+      DB_SYNC_ALTER: ${DB_SYNC_ALTER:-}
 
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
@@ -86,6 +87,9 @@ services:
       CAS_ATTR_EMAIL: ${CAS_ATTR_EMAIL:-email,mail}
       CAS_ATTR_DEPARTMENT: ${CAS_ATTR_DEPARTMENT:-department,departmentName,dept}
       CAS_ATTR_AVATAR: ${CAS_ATTR_AVATAR:-avatar,picture}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://124.222.8.86}
     volumes:
       - uploads-data:/app/uploads

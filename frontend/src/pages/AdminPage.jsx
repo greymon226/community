@@ -179,15 +179,22 @@ function Users() {
   };
   return (
     <>
-      <Input.Search placeholder="搜索工号/姓名/部门" allowClear onSearch={setKeyword} style={{ width: 280, marginBottom: 12 }} />
+      <Input.Search placeholder="搜索工号/姓名/昵称/部门" allowClear onSearch={setKeyword} style={{ width: 300, marginBottom: 12 }} />
       <Table
         rowKey="id"
         dataSource={data.items}
         columns={[
-          { title: '工号', dataIndex: 'empNo' },
+          { title: '工号/标识', dataIndex: 'empNo', ellipsis: true, width: 160 },
           { title: '姓名', dataIndex: 'name' },
           { title: '昵称', dataIndex: 'nickname' },
-          { title: '部门', dataIndex: 'department' },
+          { title: '部门', dataIndex: 'department', ellipsis: true },
+          {
+            title: '登录方式',
+            width: 150,
+            render: (_, r) => r.githubUsername
+              ? <Tag color="default">GitHub: {r.githubUsername}</Tag>
+              : <Tag color="blue">CAS / 账号</Tag>,
+          },
           {
             title: '角色',
             render: (_, r) => (
@@ -279,7 +286,6 @@ function AuditLogs() {
         { title: '时间', dataIndex: 'createdAt', render: (v) => dayjs(v).format('YY-MM-DD HH:mm:ss'), width: 160 },
         { title: '操作人', render: (_, r) => r.operator?.nickname || r.operator?.name || '-' },
         { title: '动作', dataIndex: 'action' },
-        { title: '对象', render: (_, r) => `${r.targetType || ''} #${r.targetId || ''}` },
         { title: '详情', dataIndex: 'detail', ellipsis: true },
         { title: 'IP', dataIndex: 'ip' },
       ]}

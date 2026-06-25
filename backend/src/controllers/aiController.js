@@ -9,6 +9,7 @@ const settings = require('../services/settingService');
 const cache = require('../services/cacheService');
 const moderation = require('../services/moderationService');
 const metrics = require('../services/aiMetricsService');
+const { writeAudit } = require('../middlewares/audit');
 
 function askCacheKey(question) {
   const qHash = crypto.createHash('sha1').update(question.toLowerCase()).digest('hex').slice(0, 16);
@@ -164,6 +165,12 @@ async function ask(req, res) {
   // 4) 缓存（1h）；配额已在调用前原子预占，避免并发绕过每日上限
   await cache.set(cacheKey, payload, 3600);
 
+  await writeAudit(req, {
+    action: 'ai.ask',
+    targetType: 'ai',
+    detail: { question, model: payload.model, cached: payload.cached }
+  });
+
   return ok(res, payload);
 }
 
@@ -196,6 +203,11 @@ async function askStream(req, res) {
   const cached = await cache.get(cacheKey);
   if (cached) {
     metrics.record({ feature: 'ask', outcome: 'cached' }).catch(() => {});
+    await writeAudit(req, {
+      action: 'ai.ask_stream',
+      targetType: 'ai',
+      detail: { question, cached: true }
+    });
     await replayCachedAskStream(res, cached);
     return;
   }
@@ -269,6 +281,12 @@ async function askStream(req, res) {
         used: quota.used - 1,
         limit,
       }), 3600);
+
+      await writeAudit(req, {
+        action: 'ai.ask_stream',
+        targetType: 'ai',
+        detail: { question, cached: false }
+      });
     }
   } catch (e) {
     if (!closed) emit('error', { message: e.message });
@@ -321,6 +339,12 @@ async function assist(req, res) {
   } catch (e) {
     return fail(res, `AI 调用失败：${e.message}`, 5001, 502);
   }
+
+  await writeAudit(req, {
+    action: `ai.assist.${kind}`,
+    targetType: 'ai',
+    detail: { kind }
+  });
 
   return ok(res, { kind, ...result, quotaUsed: quota.used, quotaLimit: limit });
 }
